@@ -13,6 +13,7 @@ var _session_start_time_s: float = 0.0
 var _feed_title: Label
 var _status_label: Label
 var _status_shown: bool = false
+@export var debug_mode: bool = false
 var _toast: Label
 var _naming_overlay: Control
 var _naming_target: Node = null
@@ -33,7 +34,8 @@ func _get_memory_ratio(d: Node) -> float:
 func _ready() -> void:
 	_ensure_fullscreen()
 	_ensure_input_actions()
-	await _show_startup_then_console()
+	if not debug_mode:
+		await _show_startup_then_console()
 	_build_console_ui()
 	_init_station_and_drone()
 	_apply_feed_to_monitor()
