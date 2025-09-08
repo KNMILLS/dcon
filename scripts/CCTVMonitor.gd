@@ -15,8 +15,10 @@ func _ready() -> void:
 	if sub_viewport:
 		if sub_viewport.size == Vector2i.ZERO:
 			sub_viewport.size = Vector2i(640, 360)
-		sub_viewport.update_mode = SubViewport.UPDATE_ALWAYS
-		sub_viewport.clear_mode = SubViewport.CLEAR_MODE_ALWAYS
+		if sub_viewport.has_method("set_update_mode"):
+			sub_viewport.set_update_mode(SubViewport.UPDATE_ALWAYS)
+		if sub_viewport.has_method("set_clear_mode"):
+			sub_viewport.set_clear_mode(SubViewport.CLEAR_MODE_ALWAYS)
 	# Ensure there is an active camera for this viewport
 	if is_instance_valid(viewport_camera):
 		viewport_camera.current = true
