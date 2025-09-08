@@ -6,7 +6,8 @@ func _ready() -> void:
 	var label := $Center/Label
 	var overlay := $Overlay as ColorRect
 	if label:
-		await _typewriter(label, "CONNECTING...", 0.05)
+		var boot_text: String = label.text
+		await _typewriter(label, boot_text, 0.05)
 		await get_tree().create_timer(0.5).timeout
 		await _fade_overlay(overlay, 1.0)
 		emit_signal("finished")

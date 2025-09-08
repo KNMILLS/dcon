@@ -31,4 +31,38 @@ grow_vertical = 2
 layout_mode = 2
 theme_override_colors/font_color = Color(0.4, 1, 0.4, 1)
 theme_override_font_sizes/font_size = 32
-text = "CONNECTING..."
+text = "T 00:00.000  INIT SEQUENCE BEGIN
+T 00:00.112  Loading comm profile: DSN Ka band / ephemeris set 2458923.5
+T 00:00.239  Fetching station config DSS 43 (Canberra) uplink array
+T 00:00.364  Oscillator calibration stable / drift 0.00012 ppm
+T 00:00.518  Pointing vector solution acquired RA 16h 29m 32s Dec -23.5 deg
+T 00:00.642  Slew command issued to 34 m dish / slew in progress
+T 00:00.990  Radiation monitor online / SEU tolerance profile loaded
+
+T 00:01.214  Authentication module boot
+T 00:01.342  Initiating quantum key handshake CRYSTALS Kyber variant
+T 00:01.871  Key exchange complete / entropy pool validated
+T 00:02.005  Encryption tunnel established / AES 256 fallback armed
+
+T 00:02.334  Signal acquisition Ka band 32.1 GHz carrier
+T 00:02.556  Doppler shift measured +14.223 kHz / velocity vector match
+T 00:02.789  Ranging tone detected / one way light time estimate 11.42 s
+T 00:03.012  Signal lock confirmed SNR 43.2 dB
+
+T 00:03.225  Downlink frame sync detected
+T 00:03.379  CCSDS header parse ok
+T 00:03.601  Reed Solomon error correction engaged
+T 00:03.718  Frame integrity check 100 percent
+
+T 00:04.014  Remote system ID DRN 7 A designation cross checked
+T 00:04.142  Core reactor status green / 92 percent output
+T 00:04.366  Thermal radiators nominal / coolant loop stable
+T 00:04.489  Sensor array initializing LIDAR package online
+T 00:04.702  Navigation core active / star tracker calibration underway
+
+T 00:05.031  Telemetry buffer flush complete
+T 00:05.214  Command channel established / latency 22.9 s round trip
+T 00:05.428  Drone control ready / awaiting operator input
+
+T 00:05.731  INIT SEQUENCE COMPLETE
+"
