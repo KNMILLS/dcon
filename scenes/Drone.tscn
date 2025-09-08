@@ -1,0 +1,10 @@
+[gd_scene load_steps=2 format=3 uid="uid://0c20g383weqj"]
+
+[ext_resource type="Script" uid="uid://braosuafdll4p" path="res://scripts/Drone.gd" id="1_35lu7"]
+
+[node name="Drone" type="Node3D"]
+script = ExtResource("1_35lu7")
+
+[node name="CameraPivot" type="Node3D" parent="."]
+
+[node name="Camera3D" type="Camera3D" parent="CameraPivot"]
