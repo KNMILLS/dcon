@@ -16,7 +16,7 @@ An ultra‑realistic remote operations simulation: you authenticate into a deep�
 
 | Stage              | Actions & Experience |
 | ------------------ | ------------------- |
-| **Connect**        | Scrollable boot/auth logs → connect to Operator Console with a single, newly discovered but unnamed drone; enforce naming on first possession. |
+| **Connect**        | Scrollable boot/auth logs → connect to Operator Console. Drone is auto‑named (random callsign) and immediately controllable. |
 | **Scan**           | Use basic sensors to map nearby corridors/doors; identify signals, hazards, and salvage targets. |
 | **Breach**         | Route power/open doors or bypass locks; accept risk (noise, exposure). |
 | **Explore**        | WASD/mouse to pilot within a sensor‑mediated feed; manage visibility and fidelity under memory/power constraints. |
@@ -51,38 +51,36 @@ An ultra‑realistic remote operations simulation: you authenticate into a deep�
 * Memory and power are primary resources; high pressure increases visual glitching and reduces effective sensor fidelity.
 * Diegetic diagnostics (signal strength, latency, memory use) are surfaced in the console/HUD.
 
-#### Feed Rendering
+#### Feed Rendering (Current Build)
 
-* Use a single **SubViewport** sized > 0 (e.g., 640×360, update mode Always).
-* The **drone’s active camera** renders into this SubViewport; other cameras mirror for monitoring.
-* UI renders the feed via **SubViewportContainer** or **ViewportTexture**.
+* A single **SubViewport** (forced 640×360, UPDATE_ALWAYS, CLEAR_MODE_ALWAYS).
+* The **drone camera** (`CameraPivot/Camera3D`) is bound at runtime; monitor mirrors its transform.
+* UI uses a **SubViewportContainer** (`CCTVMonitor.tscn`) with a simple debug readout.
 
 #### Sensor FX (VISOR Style)
 
-* **Sobel Edge** shader outlines geometry.
-* **Thermal LUT** shader remaps intensity to false‑colors.
-* (Optional) **CRT Overlay**: scanlines/noise.
-* Hotkeys: `1 = Edge`, `2 = Thermal`, `0 = None`.
-* Memory/power pressure modulates distortion, scanline jitter, chroma shift.
+* Planned: Sobel Edge and Thermal LUT modes (glitch shader temporarily disabled while stabilizing feed).
+* Mode hotkeys reserved (`1/2/0`).
+* Memory/power pressure will modulate distortion once shaders are re‑enabled.
 
 #### Memory/Power Feedback
 
 * `set_memory_pressure(ratio)` updates shader intensity and task cadence.
 * Optional power budget gates certain modules; overdraw triggers emergency cutbacks.
 
-#### Input
+#### Input (Current Build)
 
 * Movement: WASD; mouse look while possessed.
-* Zoom: `zoom_in` / `zoom_out` adjust camera FOV; optional monitor scale toggle.
-* Sensor modes: `1/2/0`.
-* Additional: feed cycle, possess next/prev, release possession, UI paging for test memory load.
+* Zoom: monitor scale toggle only (camera FOV zoom pending).
+* Sensor modes: not yet wired.
+* Additional: release possession; page up/down adjust memory load (for testing).
 * Proper InputMap configuration, optionally added at runtime if missing.
 
 ---
 
 ### 4. **Visual & UX Design**
 
-* **Terminal‑first**: scrollable boot/auth logs lead directly into the diegetic Operator Console.
+* **Terminal‑first**: scrollable boot/auth logs (typewriter; debug skip supported) lead into the diegetic Operator Console.
 * **Sensor aesthetics**: purposefully abstract (VISOR‑style), prioritizing legibility under stress over photorealism.
 * **Environment blocks**: simple geometry (floors, corridors, walls) with fog and tone mapping to emphasize silhouette and depth; expands with systems/hazards.
 * **UI**: minimal, diegetic HUD—sensor mode (EDGE/THRM/NONE), FOV/zoom level, memory ratio, signal/latency; optional debug shows viewport size/camera state.
@@ -129,10 +127,10 @@ This GDD is intentionally **minimal and actionable**, following modern agile and
 ### 7. **Roadmap**
 
 #### MVP
-* Single drone with collision, possession, and FOV zoom/exposure.
-* SubViewport feed + two sensor modes (EDGE/THRM) with memory‑linked glitch visuals.
-* Operator Console: boot/auth logs, naming flow, minimal HUD (mode/FOV/memory/signal).
-* Simple hazards (e.g., door locks, dark zones) and basic salvage/resources for upgrades.
+* Single drone with collision, possession, and basic movement/looking.
+* Stable SubViewport feed; re‑enable glitch shader; add two sensor modes (EDGE/THRM).
+* Operator Console: boot/auth logs (speed‑tuned), auto‑naming, minimal HUD (mode/memory/signal).
+* Simple hazards and basic salvage/resources for upgrades; camera FOV zoom.
 
 #### Post‑MVP
 * Station subsystems (power routing, doors/locks, air) with believable failure modes.
