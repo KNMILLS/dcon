@@ -10,8 +10,8 @@ func _ready() -> void:
 	material = null
 	# Ensure SubViewport renders
 	if sub_viewport:
-		if sub_viewport.size == Vector2i.ZERO:
-			sub_viewport.size = Vector2i(640, 360)
+		# Force a reasonable size for visibility
+		sub_viewport.size = Vector2i(640, 360)
 		if sub_viewport.has_method("set_update_mode"):
 			sub_viewport.set_update_mode(SubViewport.UPDATE_ALWAYS)
 		if sub_viewport.has_method("set_clear_mode"):

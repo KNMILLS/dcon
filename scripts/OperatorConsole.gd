@@ -13,7 +13,7 @@ var _session_start_time_s: float = 0.0
 var _feed_title: Label
 var _status_label: Label
 var _status_shown: bool = false
-@export var debug_mode: bool = false
+@export var debug_mode: bool = true
 var _toast: Label
 var _naming_overlay: Control
 var _naming_target: Node = null
@@ -195,6 +195,13 @@ func _apply_feed_to_monitor() -> void:
 		_monitor.set_memory_pressure(ratio)
 	_update_status()
 	_update_feed_title()
+
+	# In debug_mode, auto-possess and force camera current
+	if debug_mode and _is_drone(_drone):
+		_drone.set_possessed(true)
+		var cam := _drone.get_node_or_null("CameraPivot/Camera3D") as Camera3D
+		if cam:
+			cam.current = true
 
 func _on_toggle_feed_pressed() -> void:
 	# Single-drone: no alternate feeds
