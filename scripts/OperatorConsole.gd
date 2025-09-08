@@ -55,9 +55,6 @@ func _ensure_input_actions() -> void:
 		{"name": "move_left", "keys": [KEY_A]},
 		{"name": "move_right", "keys": [KEY_D]},
 		{"name": "mouse_look", "mouse": true},
-		{"name": "toggle_feed", "keys": [KEY_TAB]},
-		{"name": "possess_next_drone", "keys": [KEY_P]},
-		{"name": "possess_prev_drone", "keys": [KEY_O]},
 		{"name": "zoom_feed", "keys": [KEY_Q]},
 		{"name": "close", "keys": [KEY_ESCAPE]},
 		{"name": "ui_page_up", "keys": [KEY_PAGEUP]},
@@ -279,11 +276,10 @@ func _on_overlay_name_confirmed(new_name: String) -> void:
 	if _is_drone(_naming_target):
 		_naming_target.codename = new_name
 		_naming_target.is_named = true
-	var reg := get_node_or_null("/root/DroneRegistry")
-	if reg:
-		reg.call("mark_named", _naming_target)
 	_populate_drone_list_ui()
 	_update_feed_title()
+	if _naming_target == _drone:
+		_drone.set_possessed(true)
 	_naming_target = null
 
 func _on_overlay_name_canceled() -> void:
