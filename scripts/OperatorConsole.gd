@@ -154,10 +154,11 @@ func _build_console_ui() -> void:
 
 	# Single-drone: no pool required
 
-	_naming_overlay = naming_overlay_scene.instantiate()
-	add_child(_naming_overlay)
-	_naming_overlay.connect("name_confirmed", Callable(self, "_on_overlay_name_confirmed"))
-	_naming_overlay.connect("name_canceled", Callable(self, "_on_overlay_name_canceled"))
+	# Naming overlay disabled: auto-assign codename at startup
+	# _naming_overlay = naming_overlay_scene.instantiate()
+	# add_child(_naming_overlay)
+	# _naming_overlay.connect("name_confirmed", Callable(self, "_on_overlay_name_confirmed"))
+	# _naming_overlay.connect("name_canceled", Callable(self, "_on_overlay_name_canceled"))
 
 	# Registry removed in single-drone scope
 
@@ -172,6 +173,14 @@ func _init_station_and_drone() -> void:
 			_drone = d
 			if d.has_signal("memory_pressure_changed"):
 				d.memory_pressure_changed.connect(_on_drone_pressure_changed.bind(d))
+			# Auto-name and ensure camera is current
+			if _is_drone(_drone) and not _drone.is_named:
+				_drone.codename = _generate_callsign()
+				_drone.is_named = true
+			var cam := _drone.get_node_or_null("CameraPivot/Camera3D") as Camera3D
+			if cam:
+				cam.current = true
+			_update_feed_title()
 
 func _spawn_drones(_count: int) -> void:
 	# Single-drone: spawning disabled
@@ -296,7 +305,7 @@ func _on_drone_named(_named: Node, codename: String) -> void:
 
 func _open_naming_for(drone: Node) -> void:
 	_naming_target = drone
-	_naming_overlay.call("open_for", drone)
+	# _naming_overlay.call("open_for", drone) # Naming overlay disabled
 
 func _on_overlay_name_confirmed(new_name: String) -> void:
 	if _naming_target == null:
@@ -317,3 +326,13 @@ func _on_overlay_name_canceled() -> void:
 func _check_unnamed_startup() -> void:
 	if _is_drone(_drone) and not _drone.is_named:
 		_open_naming_for(_drone)
+
+func _generate_callsign() -> String:
+	var bank: Array[String] = [
+		"ARGUS", "NOVA", "VIGIL", "SABLE", "ONYX", "LYNX", "KITE",
+		"IRIS", "KRAIT", "DELTA", "ECHO", "TANGO"
+	]
+	var index: int = int(randi()) % bank.size()
+	var letters: String = bank[index]
+	var number: int = int(randi() % 90) + 10
+	return "%s %02d" % [letters, number]
