@@ -19,9 +19,18 @@ func _ready() -> void:
 
 func _typewriter(label: Label, text: String, delay: float) -> void:
 	label.text = ""
-	for i in text.length():
-		label.text += text[i]
-		await get_tree().create_timer(delay).timeout
+	var lines := text.split("\n")
+	for l in lines:
+		for i in l.length():
+			label.text += l[i]
+			await get_tree().create_timer(delay).timeout
+		label.text += "\n"
+		var pause := 0.12
+		if l.find("INIT SEQUENCE BEGIN") != -1 or l.find("Signal lock confirmed") != -1 or l.find("INIT SEQUENCE COMPLETE") != -1:
+			pause = 0.35
+		elif l.strip_edges() == "":
+			pause = 0.20
+		await get_tree().create_timer(pause).timeout
 
 func _fade_overlay(overlay: ColorRect, duration: float) -> void:
 	var tw := create_tween()

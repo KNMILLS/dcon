@@ -12,6 +12,7 @@ var _timer_label: Label
 var _session_start_time_s: float = 0.0
 var _feed_title: Label
 var _status_label: Label
+var _status_shown: bool = false
 var _toast: Label
 var _naming_overlay: Control
 var _naming_target: Node = null
@@ -115,7 +116,7 @@ func _build_console_ui() -> void:
 	top.add_child(_feed_title)
 
 	_status_label = Label.new()
-	_status_label.text = "OBSERVING"
+	_status_label.text = "DRONE ONLINE"
 	top.add_child(_status_label)
 
 	var main := HBoxContainer.new()
@@ -256,10 +257,11 @@ func _update_feed_title() -> void:
 func _update_status() -> void:
 	if _status_label == null:
 		return
-	var status := "OBSERVING"
-	if _is_drone(_drone) and _drone.is_possessed():
-		status = "POSSESSED"
-	_status_label.text = status
+	if not _status_shown:
+		_status_shown = true
+		_status_label.visible = true
+		await get_tree().create_timer(1.2).timeout
+		_status_label.visible = false
 
 func _show_toast(msg: String) -> void:
 	if _toast == null:
