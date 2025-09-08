@@ -1,158 +1,152 @@
-## **Game Design Document: *dcon***
+## *dcon* — Lean Game Design Document (Updated)
 
-### **1. Executive Summary**
+### 1. **Game Concept**
 
-**Title:** *dcon*
-**Genre & Vision:** Atmospheric survival-ops simulator—part tactical drone management, part psychological horror. The player is a remote human operator managing fragile, sentient drone packages drifting through alien structures. No menus. No saving.
+An ultra‑realistic remote operations simulation: you authenticate into a deep‑space link and assume control of a probe‑borne drone that touched down inside a derelict space station. Through a degraded, sensor‑driven video feed, you explore, salvage, and survive. The experience is intentionally diegetic, systems‑first, and inspired by DUSKERS: creative problem‑solving under incomplete information, accumulating capability by finding/claiming additional drones and installing upgrades—while a hostile station ecosystem pushes back. There’s no conventional save—sessions are ephemeral to heighten tension and immersion.
 
-**Core Experience Goals:**
+**Key Hooks:**
 
-* Immersion through diegetic interface—“connecting” feels real.
-* Emotional connection to drones through naming, uniqueness, and fragility.
-* Psychological tension via resource stress (memory limits) and system decay.
-
-**Target Audience:**
-Solo-first, narrative-suspense players; fans of immersive sim and roguelike tension.
+* **VISOR vision**: stylized sensor modes (edge detect, thermal palette, optional CRT) define your perception.
+* **Drone as you**: only one camera—your drone’s—and memory constraints shape your experience.
+* **Minimal UI**: diegetic interface—no titles, no menus, just connection → naming → control → decay.
 
 ---
 
-### **2. Design Pillars**
+### 2. **Core Loop & Player Journey**
 
-| Pillar                        | Description                                                                          |
-| ----------------------------- | ------------------------------------------------------------------------------------ |
-| **Fidelity**                  | Hyper-realistic camera feeds and visual artifacts create tangible atmosphere.        |
-| **Attachment**                | Drones are unique and nameable: losing one hurts emotionally.                        |
-| **Tension Through Fragility** | Memory is finite—overloading or distraction leads to glitches, hallucinations, loss. |
-| **Seamless Diegetic Flow**    | No traditional UI—everything is part of the system you inhabit.                      |
-
----
-
-### **3. Core Loops & Player Journey**
-
-**Session Flow:**
-
-1. Game boots directly into fullscreen start-up “CONNECTING...” terminal scene.
-2. Transition to the drone management console with live feeds and drone statuses.
-3. The player either manually pilots a drone (WASD + mouse) or monitors multiple feeds.
-4. Memory reallocation and switching draws risk—other drones degrade or even vanish.
-5. Naming new discoveries builds attachment; losing drones intensifies emotional weight.
-6. Exiting ends the session—ephemeral world reset next launch.
-
-**Primary Loop:**
-
-* Observe → Decide → Act (pilot/monitor) → Manage memory → Respond to degradation → Emotional payoff.
+| Stage              | Actions & Experience |
+| ------------------ | ------------------- |
+| **Connect**        | Scrollable boot/auth logs → connect to Operator Console with a single, newly discovered but unnamed drone; enforce naming on first possession. |
+| **Scan**           | Use basic sensors to map nearby corridors/doors; identify signals, hazards, and salvage targets. |
+| **Breach**         | Route power/open doors or bypass locks; accept risk (noise, exposure). |
+| **Explore**        | WASD/mouse to pilot within a sensor‑mediated feed; manage visibility and fidelity under memory/power constraints. |
+| **Salvage**        | Recover resources and claim derelict drones; run integrity checks before activation. |
+| **Upgrade**        | Install modules (sensors, memory, shielding, comms) with trade‑offs (power/heat/memory). |
+| **Expand**         | Bring more drones online; switch feeds/possession to coordinate tasks. |
+| **Survive/Retreat**| React to hazards and threats; extract when overwhelmed. No mid‑run saves. |
 
 ---
 
-### **4. Mechanics Breakdown**
+### 3. **Mechanics & Technical Systems**
 
-* **Scene Flow:**
+#### Drone Entity
 
-  * **StartupLink.tscn** – Fullscreen terminal with typewriter-style green text, then fades.
-  * **OperatorConsole.tscn** – Main scene: drone list, feed window, status overlays.
+* `Drone.tscn` as `CharacterBody3D` with collision.
+* `Camera3D` child runs script (`drone_camera.gd`) to manage `current`, FOV zoom, and exposure.
+* Possession toggles mouse capture; non‑possessed drones still stream for monitoring.
 
-* **Drone Entity:**
+#### Drones & Progression
 
-  * **Unique Attributes:** name, health, camera type (thermal, wide-angle, audio, etc.).
-  * **Memory Pool:** finite capacity to run tasks; when filled, performance degrades, glitch shaders activate.
+* Discover/claim derelict drones in‑station; run basic integrity/repair checks before activation.
+* Upgrades unlock modules (sensors, memory capacity, shielding, comms range/bandwidth) with trade‑offs (power/heat/memory footprint).
+* Coordinate multiple drones: switch feed/possession instantly; contextual tasks increase memory/power demand.
 
-* **Control Systems:**
+#### Hostile Station Systems
 
-  * **Manual:** WASD and mouse for active drone.
-  * **Auto:** Others run autonomous tasks; unattended risk accumulates with memory strain.
+* Environmental hazards: vacuum breaches, radiation spikes, corrosives, EMP surges.
+* Active threats: rogue maintenance bots, sentry turrets, security subsystems.
+* Systems layer: power routing, doors/locks, air handling—believable failure modes and alarms; interacting with systems can reveal pathways or trigger threats.
 
-* **Feed System:**
+#### Operator Constraints
 
-  * Multi-view architecture via `SubViewport`s.
-  * Feed toggle via UI button or key (e.g., Tab).
+* Signal quality and latency affect input responsiveness and feed clarity.
+* Memory and power are primary resources; high pressure increases visual glitching and reduces effective sensor fidelity.
+* Diegetic diagnostics (signal strength, latency, memory use) are surfaced in the console/HUD.
 
-* **Memory Stress Dynamics:**
+#### Feed Rendering
 
-  * Memory usage slows tasks, injects distortion, glitches UI, and spawns ghost frames—reflecting psychological decay.
+* Use a single **SubViewport** sized > 0 (e.g., 640×360, update mode Always).
+* The **drone’s active camera** renders into this SubViewport; other cameras mirror for monitoring.
+* UI renders the feed via **SubViewportContainer** or **ViewportTexture**.
 
-* **Naming & Emotional Bonding:**
+#### Sensor FX (VISOR Style)
 
-  * New drone acquisition triggers a minimalist overlay to name it.
-  * Player identity and emotion reflected in dialogue or feed quirks tied to the drone’s name.
+* **Sobel Edge** shader outlines geometry.
+* **Thermal LUT** shader remaps intensity to false‑colors.
+* (Optional) **CRT Overlay**: scanlines/noise.
+* Hotkeys: `1 = Edge`, `2 = Thermal`, `0 = None`.
+* Memory/power pressure modulates distortion, scanline jitter, chroma shift.
 
-* **Permanent Ephemerality:**
+#### Memory/Power Feedback
 
-  * On exit, game state resets. Only UI-related settings might persist via ConfigFile.
+* `set_memory_pressure(ratio)` updates shader intensity and task cadence.
+* Optional power budget gates certain modules; overdraw triggers emergency cutbacks.
+
+#### Input
+
+* Movement: WASD; mouse look while possessed.
+* Zoom: `zoom_in` / `zoom_out` adjust camera FOV; optional monitor scale toggle.
+* Sensor modes: `1/2/0`.
+* Additional: feed cycle, possess next/prev, release possession, UI paging for test memory load.
+* Proper InputMap configuration, optionally added at runtime if missing.
 
 ---
 
-### **5. Aesthetic & Narrative Themes**
+### 4. **Visual & UX Design**
 
-* **Visual Style:** Cinematic feeds with film grain, dynamic focus, subtle lens artefacts.
-* **Sound Design:** Ambient hums, static glitches, muted creaks—minimalistic but haunting.
-* **Emotion:** Emotional layering through naming and loss; grief framed as a gameplay mechanic.
-* **Story Beats:** Hints of forgotten Earth, lost missions, and eerie AI signals appear through logs and corrupted recordings.
+* **Terminal‑first**: scrollable boot/auth logs lead directly into the diegetic Operator Console.
+* **Sensor aesthetics**: purposefully abstract (VISOR‑style), prioritizing legibility under stress over photorealism.
+* **Environment blocks**: simple geometry (floors, corridors, walls) with fog and tone mapping to emphasize silhouette and depth; expands with systems/hazards.
+* **UI**: minimal, diegetic HUD—sensor mode (EDGE/THRM/NONE), FOV/zoom level, memory ratio, signal/latency; optional debug shows viewport size/camera state.
+* **Audio**: persistent station hums; sensor/actuator coil whine; distinct overload snaps/glitches scaling with memory/power stress and signal quality.
 
 ---
 
-### **6. Technical Architecture**
+### 5. **Technical Stack & Structure**
 
 ```
 /scenes
+  Drone.tscn
   StartupLink.tscn
   OperatorConsole.tscn
-  Drone.tscn
   CCTVMonitor.tscn
-/ui
-  NamingOverlay.tscn
 /scripts
-  startup_link.gd
-  operator_console.gd
-  drone.gd
-  drone_memory.gd
-  feed_switcher.gd
-  naming_overlay.gd
+  drone_camera.gd
+  OperatorConsole.gd
+  CCTVMonitor.gd
 /shaders
-  glitch_under_load.gdshader
-  cinematic_post.fx
+  sobel_edge.gdshader
+  thermal_lut.gdshader
+  crt_overlay.gdshader
 ```
 
-* **Input Map:**
-
-  * `move_forward/back/left/right`, `toggle_feed`, `possess_next_drone`, `zoom_feed`, `close` etc.
-
-* **Memory System:**
-
-  * `DroneMemory.gd` with signals to drive UI patches and shader uniforms.
-
-* **Post Effects:**
-
-  * `glitch_under_load.gdshader` on feed texture.
-  * Slight CRT/film layer for atmosphere.
+* **Camera Pipeline**: Camera3D → SubViewport → ViewportTexture → TextureRect.
+* **Shader pipeline**: dynamic mode switching + memory-integrated glitch intensity.
+* **Iterative prototyping**: Starting from simple blockout scenes; polish visuals incrementally once gameplay feels solid. (\[turn0search1], \[turn0search3])
 
 ---
 
-### **7. UI Structure**
+### 6. **Design Philosophy & Iterative Approach**
 
-* **Operator Console Layout:**
+This GDD is intentionally **minimal and actionable**, following modern agile and iterative design practices that favor working prototypes over lengthy spec. Feedback from the actual build drives the next evolution. (\[turn0search3], \[turn0search1])
 
-  * Left: Drone list (name, memory usage, status).
-  * Center: Feed display (TextureRect).
-  * Top: Status bar (session timer, signal strength).
-  * Overlay: Naming prompt; ghost overlays on memory stress.
+**Principles:**
 
----
-
-### **8. Development Roadmap**
-
-| Milestones            | Goals                                                 |
-| --------------------- | ----------------------------------------------------- |
-| Foundation Setup      | Startup scene + Operator Console + basic drone entity |
-| Feed Loop             | SubViewport feeds + toggle switching                  |
-| Movement + Possession | WASD + mouse pilot for drone                          |
-| Memory & Glitch FX    | Memory pool logic + feed shaders                      |
-| Naming UI             | Name drone on acquisition                             |
-| Emotional Layer       | Loss feedback; feed ghosting; audio fragile hints     |
-| Polish                | Visual filters, ambient sound design, node clean-up   |
+* Build fast, test sooner. Don’t lock visuals first—nail the feeling and control loop.
+* Let the game prototype be the primary design artifact—update this doc as the gameplay proves itself.
+* Break the GDD into small, modular features—sensor modes, camera control, memory UX—so individual agents or developers can own them clearly.
 
 ---
 
-### **9. Practical GDD Philosophy**
+### 7. **Roadmap**
 
-This GDD is modern and utilitarian—concise, modular, and living. It balances clarity with flexibility, giving agents or collaborators direct spec without immersion-breaking detail. Each section is actionable, aligned to features, and reflects modern game design best practices.
-([codecks.io][1], [Game Developer][2])
+#### MVP
+* Single drone with collision, possession, and FOV zoom/exposure.
+* SubViewport feed + two sensor modes (EDGE/THRM) with memory‑linked glitch visuals.
+* Operator Console: boot/auth logs, drone list, feed switch, naming flow, minimal HUD (mode/FOV/memory/signal).
+* Simple hazards (e.g., door locks, dark zones) and salvage of one additional drone.
+
+#### Post‑MVP
+* Station subsystems (power routing, doors/locks, air) with believable failure modes.
+* Active threats (rogue bots, sentries) and environmental hazards (radiation/EMP/corrosives).
+* Upgrades and trade‑offs (memory, shielding, comms bandwidth/range).
+* Procedural station expansion; deployable sensor nodes; richer audio design.
+
+---
+
+### References & Context
+
+* Modern GDDs should remain **lean and evolving**; over-specifying hurts more than helps. (\[turn0search3], \[turn0search6])
+* Iteration is key—“make playable, then improve.” (*Ori*’s process is a strong example.) (\[turn0search1])
+* GDD is a **living document**, updated as design and code align. (\[turn0search4], \[turn0search10])
+
