@@ -84,7 +84,7 @@ func _update_debug() -> void:
 		h = sub_viewport.size.y
 	var cam_str := "yes" if cam_ok else "no"
 	var tex_str := "yes" if tex_ok else "no"
-	var src_str := _source_camera.get_path() if is_instance_valid(_source_camera) else "none"
+	var src_str := str(_source_camera.get_path()) if is_instance_valid(_source_camera) else "none"
 	lbl.text = "VP %dx%d | cam:%s | tex:%s | src:%s" % [w, h, cam_str, tex_str, src_str]
 	if not vp_ok:
 		push_error("[Monitor] SubViewport size is 0; set size or update mode.")
