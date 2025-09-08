@@ -6,11 +6,8 @@ var _shader_mat: ShaderMaterial
 var _source_camera: Camera3D = null
 
 func _ready() -> void:
-	var sh := load("res://shaders/glitch_under_load.gdshader") as Shader
-	if sh:
-		_shader_mat = ShaderMaterial.new()
-		_shader_mat.shader = sh
-		material = _shader_mat
+	# Disable post-process material to ensure feed visibility
+	material = null
 	# Ensure SubViewport renders
 	if sub_viewport:
 		if sub_viewport.size == Vector2i.ZERO:
