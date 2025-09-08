@@ -12,6 +12,8 @@ func _ready() -> void:
 	if sub_viewport:
 		# Force a reasonable size for visibility
 		sub_viewport.size = Vector2i(640, 360)
+		sub_viewport.disable_3d = false
+		sub_viewport.use_own_world_3d = true
 		if sub_viewport.has_method("set_update_mode"):
 			sub_viewport.set_update_mode(SubViewport.UPDATE_ALWAYS)
 		if sub_viewport.has_method("set_clear_mode"):
@@ -44,6 +46,7 @@ func set_feed(feed_node: Node) -> void:
 	_source_camera = cam
 	if cam:
 		# Render the same world as the source camera
+		sub_viewport.use_own_world_3d = true
 		sub_viewport.world_3d = cam.get_world_3d()
 		_copy_camera_settings(cam)
 		# Make sure viewport has an active camera
@@ -51,6 +54,9 @@ func set_feed(feed_node: Node) -> void:
 			viewport_camera.current = true
 		if sub_viewport and sub_viewport.size == Vector2i.ZERO:
 			sub_viewport.size = Vector2i(640, 360)
+		print("[Monitor] Feed bound to camera:", cam.get_path())
+	else:
+		push_error("[Monitor] No camera found on feed node: %s" % [feed_node])
 
 func _copy_camera_settings(cam: Camera3D) -> void:
 	if not is_instance_valid(viewport_camera):
