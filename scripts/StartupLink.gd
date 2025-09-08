@@ -7,8 +7,8 @@ func _ready() -> void:
 	var overlay := $Overlay as ColorRect
 	if label:
 		var boot_text: String = label.text
-		await _typewriter(label, boot_text, 0.05)
-		await get_tree().create_timer(0.5).timeout
+		await _typewriter(label, boot_text, 0.01)
+		await get_tree().create_timer(0.1).timeout
 		await _fade_overlay(overlay, 1.0)
 		emit_signal("finished")
 		# Add a simple audio hum for atmosphere
@@ -25,11 +25,11 @@ func _typewriter(label: Label, text: String, delay: float) -> void:
 			label.text += l[i]
 			await get_tree().create_timer(delay).timeout
 		label.text += "\n"
-		var pause := 0.12
+		var pause := 0.024
 		if l.find("INIT SEQUENCE BEGIN") != -1 or l.find("Signal lock confirmed") != -1 or l.find("INIT SEQUENCE COMPLETE") != -1:
-			pause = 0.35
+			pause = 0.07
 		elif l.strip_edges() == "":
-			pause = 0.20
+			pause = 0.04
 		await get_tree().create_timer(pause).timeout
 
 func _fade_overlay(overlay: ColorRect, duration: float) -> void:
