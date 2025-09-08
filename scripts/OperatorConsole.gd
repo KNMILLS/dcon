@@ -138,6 +138,9 @@ func _build_console_ui() -> void:
 
 	_monitor = cctv_monitor_scene.instantiate()
 	_monitor.name = "CCTVMonitor"
+	if _monitor is Control:
+		(_monitor as Control).size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		(_monitor as Control).size_flags_vertical = Control.SIZE_EXPAND_FILL
 	main.add_child(_monitor)
 
 	# Single-drone: no feed toggle or spawn controls
