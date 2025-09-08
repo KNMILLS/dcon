@@ -18,7 +18,6 @@ config/icon="res://icon.svg"
 [autoload]
 
 GDAIMCPRuntime="*res://addons/gdai-mcp-plugin-godot/gdai_mcp_runtime.gd"
-DroneRegistry="*res://scripts/drone_registry.gd"
 
 [editor_plugins]
 

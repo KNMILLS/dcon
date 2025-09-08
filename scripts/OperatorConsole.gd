@@ -4,11 +4,9 @@ extends Control
 @onready var startup_link_scene: PackedScene = preload("res://scenes/StartupLink.tscn")
 @onready var drone_scene: PackedScene = preload("res://scenes/Drone.tscn")
 @onready var naming_overlay_scene: PackedScene = preload("res://ui/NamingOverlay.tscn")
+@onready var station_scene: PackedScene = preload("res://scenes/SpaceStation.tscn")
 
-var _drones: Array[Node] = []
-var _drone_item_nodes: Array[Control] = []
-var _current_feed_index: int = 0
-var _possessed_index: int = -1
+var _drone: Node = null
 var _monitor: Node
 var _timer_label: Label
 var _session_start_time_s: float = 0.0
@@ -17,15 +15,27 @@ var _toast: Label
 var _naming_overlay: Control
 var _naming_target: Node = null
 var _zoomed: bool = false
+var _station: Node = null
+
+func _is_drone(n: Node) -> bool:
+	return n != null and n.has_method("set_possessed") and n.has_method("apply_look")
+
+func _get_memory_ratio(d: Node) -> float:
+	if not _is_drone(d):
+		return 0.0
+	var mem: DroneMemory = d.memory as DroneMemory
+	if mem:
+		return mem.get_pressure_ratio()
+	return 0.0
 
 func _ready() -> void:
 	_ensure_fullscreen()
 	_ensure_input_actions()
 	await _show_startup_then_console()
 	_build_console_ui()
-	_spawn_drones(3)
-	_populate_drone_list_ui()
+	_init_station_and_drone()
 	_apply_feed_to_monitor()
+	_check_unnamed_startup()
 	_session_start_time_s = Time.get_unix_time_from_system()
 
 func _process(_delta: float) -> void:
@@ -118,27 +128,14 @@ func _build_console_ui() -> void:
 	main.add_child(side)
 
 	var side_title := Label.new()
-	side_title.text = "DRONES"
+	side_title.text = "DRONE"
 	side.add_child(side_title)
-
-	var list := VBoxContainer.new()
-	list.name = "DroneList"
-	list.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	side.add_child(list)
 
 	_monitor = cctv_monitor_scene.instantiate()
 	_monitor.name = "CCTVMonitor"
 	main.add_child(_monitor)
 
-	var switcher := Button.new()
-	switcher.text = "Toggle Feed (Tab)"
-	switcher.pressed.connect(_on_toggle_feed_pressed)
-	side.add_child(switcher)
-
-	var spawn := Button.new()
-	spawn.text = "Spawn Test Drone"
-	spawn.pressed.connect(_on_spawn_test_drone_pressed)
-	side.add_child(spawn)
+	# Single-drone: no feed toggle or spawn controls
 
 	_toast = Label.new()
 	_toast.name = "Toast"
@@ -150,110 +147,60 @@ func _build_console_ui() -> void:
 	_toast.offset_bottom = -12
 	add_child(_toast)
 
-	var pool := Node.new()
-	pool.name = "DronePool"
-	add_child(pool)
+	# Single-drone: no pool required
 
 	_naming_overlay = naming_overlay_scene.instantiate()
 	add_child(_naming_overlay)
 	_naming_overlay.connect("name_confirmed", Callable(self, "_on_overlay_name_confirmed"))
 	_naming_overlay.connect("name_canceled", Callable(self, "_on_overlay_name_canceled"))
 
-	var reg := get_node_or_null("/root/DroneRegistry")
-	if reg:
-		reg.connect("drone_registered", Callable(self, "_on_drone_registered"))
-		reg.connect("drone_named", Callable(self, "_on_drone_named"))
+	# Registry removed in single-drone scope
 
-func _spawn_drones(count: int) -> void:
-	_drones.clear()
-	for i in count:
-		var d := drone_scene.instantiate()
-		d.name = "DRN-%d" % (i + 1)
-		_drones.append(d)
-		if d.has_signal("memory_pressure_changed"):
-			d.memory_pressure_changed.connect(_on_drone_pressure_changed.bind(d))
+func _init_station_and_drone() -> void:
+	_drone = null
+	if station_scene:
+		_station = station_scene.instantiate()
+		_station.name = "SpaceStationInstance"
+		add_child(_station)
+		var d := _station.get_node_or_null("Drone")
+		if d != null:
+			_drone = d
+			if d.has_signal("memory_pressure_changed"):
+				d.memory_pressure_changed.connect(_on_drone_pressure_changed.bind(d))
+
+func _spawn_drones(_count: int) -> void:
+	# Single-drone: spawning disabled
+	pass
 
 func _populate_drone_list_ui() -> void:
-	_drone_item_nodes.clear()
-	var list := get_node("ConsoleRoot/MainArea/LeftPanel/DroneList") as VBoxContainer
-	for c in list.get_children():
-		c.queue_free()
-	for i in _drones.size():
-		var item := HBoxContainer.new()
-		item.name = "DroneItem%d" % i
-		var label := Label.new()
-		var d := _drones[i]
-		var named: bool = d.has("is_named") and d.is_named
-		var code: String = _drones[i].name
-		if d.has("codename"):
-			code = String(d.codename)
-		label.text = code if named else "(UNNAMED)"
-		item.add_child(label)
-		var mem_bar := ProgressBar.new()
-		mem_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		mem_bar.value = 0.0
-		mem_bar.max_value = 100.0
-		item.add_child(mem_bar)
-		list.add_child(item)
-		_drone_item_nodes.append(item)
-	_update_active_highlight()
+	# Single-drone: list UI removed
+	pass
 
 func _update_active_highlight() -> void:
-	for i in _drone_item_nodes.size():
-		var is_active := (i == _current_feed_index)
-		_drone_item_nodes[i].self_modulate = Color(1, 1, 1, 1) if is_active else Color(0.7, 0.7, 0.7, 1)
-	_update_drone_list_bars()
+	# Single-drone: no highlight
+	pass
 
 func _apply_feed_to_monitor() -> void:
-	if _drones.is_empty():
+	if _drone == null:
 		return
-	var source := _drones[_current_feed_index]
 	if _monitor and _monitor.has_method("set_feed"):
-		_monitor.set_feed(source)
-	var cam := source.get_node_or_null("Camera3D") as Camera3D
-	if not cam:
-		cam = source.get_node_or_null("CameraPivot/Camera3D") as Camera3D
-	if cam:
-		cam.current = true
-	# Push current drone memory pressure to shader
-	var ratio: float = 0.0
-	if source.has("memory"):
-		var mem: DroneMemory = source.memory as DroneMemory
-		if mem:
-			ratio = mem.get_pressure_ratio()
+		_monitor.set_feed(_drone)
+	var ratio: float = _get_memory_ratio(_drone)
 	if _monitor and _monitor.has_method("set_memory_pressure"):
 		_monitor.set_memory_pressure(ratio)
 	_update_feed_title()
-	_update_active_highlight()
 
 func _on_toggle_feed_pressed() -> void:
-	if _drones.is_empty():
-		return
-	_current_feed_index = (_current_feed_index + 1) % _drones.size()
-	_apply_feed_to_monitor()
-	_update_active_highlight()
+	# Single-drone: no alternate feeds
+	pass
 
-func _cycle_possession(delta_index: int) -> void:
-	if _drones.is_empty():
-		return
-	if _possessed_index >= 0 and _possessed_index < _drones.size():
-		var prev := _drones[_possessed_index]
-		if prev.has_method("set_possessed"):
-			prev.set_possessed(false)
-	_possessed_index = (_possessed_index + delta_index + _drones.size()) % _drones.size()
-	_current_feed_index = _possessed_index
-	_apply_feed_to_monitor()
-	_update_active_highlight()
-	var cur := _drones[_possessed_index]
-	if cur.has_method("set_possessed"):
-		cur.set_possessed(true)
+func _cycle_possession(_delta_index: int) -> void:
+	# Single-drone: possession cycling removed
+	pass
 
 func _release_possession() -> void:
-	if _possessed_index >= 0 and _possessed_index < _drones.size():
-		var d := _drones[_possessed_index]
-		if d.has_method("set_possessed"):
-			d.set_possessed(false)
-	_possessed_index = -1
+	if _is_drone(_drone):
+		_drone.set_possessed(false)
 	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 
 func _toggle_zoom() -> void:
@@ -261,32 +208,19 @@ func _toggle_zoom() -> void:
 	if is_instance_valid(_monitor):
 		_monitor.stretch_shrink = 2 if _zoomed else 1
 
-func _on_drone_pressure_changed(ratio: float, drone: Node) -> void:
-	_update_drone_list_bars()
-	if _drones.size() > 0 and drone == _drones[_current_feed_index]:
-		if _monitor and _monitor.has_method("set_memory_pressure"):
-			_monitor.set_memory_pressure(ratio)
+func _on_drone_pressure_changed(ratio: float, _unused_drone: Node) -> void:
+	if _monitor and _monitor.has_method("set_memory_pressure"):
+		_monitor.set_memory_pressure(ratio)
 
 func _update_drone_list_bars() -> void:
-	var list := get_node("ConsoleRoot/MainArea/LeftPanel/DroneList") as VBoxContainer
-	for i in _drones.size():
-		var item := list.get_node("DroneItem%d" % i) as HBoxContainer
-		if item and item.get_child_count() >= 2:
-			var mem_bar := item.get_child(1) as ProgressBar
-			var ratio: float = 0.0
-			var d := _drones[i]
-			if d.has("memory"):
-				var mem: DroneMemory = d.memory as DroneMemory
-				if mem:
-					ratio = mem.get_pressure_ratio()
-			mem_bar.value = ratio * 100.0
+	# Single-drone: no list bars
+	pass
 
 func _adjust_current_drone_memory(delta_mb: float) -> void:
-	if _drones.is_empty():
+	if _drone == null:
 		return
-	var d := _drones[_current_feed_index]
-	if d.has("memory"):
-		var mem: DroneMemory = d.memory as DroneMemory
+	if _is_drone(_drone):
+		var mem: DroneMemory = _drone.memory as DroneMemory
 		if mem:
 			if delta_mb > 0.0:
 				mem.claim(delta_mb)
@@ -294,32 +228,24 @@ func _adjust_current_drone_memory(delta_mb: float) -> void:
 				mem.release(-delta_mb)
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event.is_action_pressed("toggle_feed"):
-		_on_toggle_feed_pressed()
-	elif event.is_action_pressed("possess_next_drone"):
-		_on_toggle_feed_pressed()
-	elif event.is_action_pressed("possess_prev_drone"):
-		_cycle_possession(-1)
-	elif event.is_action_pressed("close"):
+	if event.is_action_pressed("close"):
 		_release_possession()
 	elif event.is_action_pressed("zoom_feed"):
 		_toggle_zoom()
+	elif event.is_action_pressed("ui_page_up"):
+		_adjust_current_drone_memory(4.0)
+		_apply_feed_to_monitor()
+	elif event.is_action_pressed("ui_page_down"):
+		_adjust_current_drone_memory(-4.0)
+		_apply_feed_to_monitor()
 	elif event is InputEventMouseMotion:
-		if _possessed_index >= 0 and _possessed_index < _drones.size():
-			var d := _drones[_possessed_index]
-			if d.has_method("apply_look"):
-				d.apply_look(event.relative)
+		if _is_drone(_drone):
+			_drone.apply_look(event.relative)
 
 func _update_feed_title() -> void:
-	if _drones.is_empty():
-		_feed_title.text = "DRONE: —"
-		return
-	var d := _drones[_current_feed_index]
-	var code: String = d.name
-	if d.has("codename"):
-		code = String(d.codename)
-	if d.has("is_named") and not d.is_named:
-		code = "—"
+	var code: String = "—"
+	if _is_drone(_drone) and _drone.is_named:
+		code = String(_drone.codename)
 	_feed_title.text = "DRONE: %s" % code
 
 func _show_toast(msg: String) -> void:
@@ -332,25 +258,14 @@ func _show_toast(msg: String) -> void:
 		_toast.visible = false
 
 func _on_spawn_test_drone_pressed() -> void:
-	var pool := get_node_or_null("DronePool")
-	if pool == null:
-		pool = self
-	var d := drone_scene.instantiate()
-	d.name = "DRN-%d" % (_drones.size() + 1)
-	pool.add_child(d)
-	_drones.append(d)
-	_populate_drone_list_ui()
-	_apply_feed_to_monitor()
+	# Single-drone scope: spawning additional drones disabled
+	_show_toast("Single-drone mode: spawn disabled")
 
-func _on_drone_registered(drone: Node) -> void:
-	if not (drone.has("is_named") and drone.has("codename")):
-		return
-	if not drone.is_named:
-		_open_naming_for(drone)
-	_populate_drone_list_ui()
+func _on_drone_registered(_unused_drone: Node) -> void:
+	# Registry removed; keep stub for safety
+	pass
 
-func _on_drone_named(_drone: Node, codename: String) -> void:
-	_populate_drone_list_ui()
+func _on_drone_named(_named: Node, codename: String) -> void:
 	_update_feed_title()
 	_show_toast("Unit confirmed: %s" % codename)
 
@@ -358,12 +273,11 @@ func _open_naming_for(drone: Node) -> void:
 	_naming_target = drone
 	_naming_overlay.call("open_for", drone)
 
-func _on_overlay_name_confirmed(name: String) -> void:
+func _on_overlay_name_confirmed(new_name: String) -> void:
 	if _naming_target == null:
 		return
-	if _naming_target.has("codename"):
-		_naming_target.codename = name
-	if _naming_target.has("is_named"):
+	if _is_drone(_naming_target):
+		_naming_target.codename = new_name
 		_naming_target.is_named = true
 	var reg := get_node_or_null("/root/DroneRegistry")
 	if reg:
@@ -376,7 +290,5 @@ func _on_overlay_name_canceled() -> void:
 	_show_toast("Name required to proceed")
 
 func _check_unnamed_startup() -> void:
-	for d in _drones:
-		if d.has("is_named") and not d.is_named:
-			_open_naming_for(d)
-			break
+	if _is_drone(_drone) and not _drone.is_named:
+		_open_naming_for(_drone)
