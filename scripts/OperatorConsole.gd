@@ -11,6 +11,7 @@ var _monitor: Node
 var _timer_label: Label
 var _session_start_time_s: float = 0.0
 var _feed_title: Label
+var _status_label: Label
 var _toast: Label
 var _naming_overlay: Control
 var _naming_target: Node = null
@@ -113,6 +114,10 @@ func _build_console_ui() -> void:
 	_feed_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	top.add_child(_feed_title)
 
+	_status_label = Label.new()
+	_status_label.text = "OBSERVING"
+	top.add_child(_status_label)
+
 	var main := HBoxContainer.new()
 	main.name = "MainArea"
 	main.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -185,6 +190,7 @@ func _apply_feed_to_monitor() -> void:
 	var ratio: float = _get_memory_ratio(_drone)
 	if _monitor and _monitor.has_method("set_memory_pressure"):
 		_monitor.set_memory_pressure(ratio)
+	_update_status()
 	_update_feed_title()
 
 func _on_toggle_feed_pressed() -> void:
@@ -199,6 +205,7 @@ func _release_possession() -> void:
 	if _is_drone(_drone):
 		_drone.set_possessed(false)
 	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+	_update_status()
 
 func _toggle_zoom() -> void:
 	_zoomed = not _zoomed
@@ -208,6 +215,7 @@ func _toggle_zoom() -> void:
 func _on_drone_pressure_changed(ratio: float, _unused_drone: Node) -> void:
 	if _monitor and _monitor.has_method("set_memory_pressure"):
 		_monitor.set_memory_pressure(ratio)
+	_update_status()
 
 func _update_drone_list_bars() -> void:
 	# Single-drone: no list bars
@@ -245,6 +253,14 @@ func _update_feed_title() -> void:
 		code = String(_drone.codename)
 	_feed_title.text = "DRONE: %s" % code
 
+func _update_status() -> void:
+	if _status_label == null:
+		return
+	var status := "OBSERVING"
+	if _is_drone(_drone) and _drone.is_possessed():
+		status = "POSSESSED"
+	_status_label.text = status
+
 func _show_toast(msg: String) -> void:
 	if _toast == null:
 		return
@@ -264,6 +280,7 @@ func _on_drone_registered(_unused_drone: Node) -> void:
 
 func _on_drone_named(_named: Node, codename: String) -> void:
 	_update_feed_title()
+	_update_status()
 	_show_toast("Unit confirmed: %s" % codename)
 
 func _open_naming_for(drone: Node) -> void:
@@ -280,6 +297,7 @@ func _on_overlay_name_confirmed(new_name: String) -> void:
 	_update_feed_title()
 	if _naming_target == _drone:
 		_drone.set_possessed(true)
+		_update_status()
 	_naming_target = null
 
 func _on_overlay_name_canceled() -> void:

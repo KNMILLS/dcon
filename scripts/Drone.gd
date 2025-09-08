@@ -87,3 +87,6 @@ func _update_task_timer() -> void:
 
 func _on_task_tick() -> void:
 	pass 
+
+func is_possessed() -> bool:
+	return _is_possessed
