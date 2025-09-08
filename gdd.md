@@ -2,7 +2,7 @@
 
 ### 1. **Game Concept**
 
-An ultra‑realistic remote operations simulation: you authenticate into a deep‑space link and assume control of a probe‑borne drone that touched down inside a derelict space station. Through a degraded, sensor‑driven video feed, you explore, salvage, and survive. The experience is intentionally diegetic, systems‑first, and inspired by DUSKERS: creative problem‑solving under incomplete information, accumulating capability by finding/claiming additional drones and installing upgrades—while a hostile station ecosystem pushes back. There’s no conventional save—sessions are ephemeral to heighten tension and immersion.
+An ultra‑realistic remote operations simulation: you authenticate into a deep‑space link and assume control of a probe‑borne drone that touched down inside a derelict space station. Through a degraded, sensor‑driven video feed, you explore, salvage, and survive. The experience is intentionally diegetic, systems‑first, and inspired by DUSKERS: creative problem‑solving under incomplete information, accumulating capability by upgrading a single drone—the drone is the character—while a hostile station ecosystem pushes back. There’s no conventional save—sessions are ephemeral to heighten tension and immersion.
 
 **Key Hooks:**
 
@@ -22,7 +22,6 @@ An ultra‑realistic remote operations simulation: you authenticate into a deep�
 | **Explore**        | WASD/mouse to pilot within a sensor‑mediated feed; manage visibility and fidelity under memory/power constraints. |
 | **Salvage**        | Recover resources and claim derelict drones; run integrity checks before activation. |
 | **Upgrade**        | Install modules (sensors, memory, shielding, comms) with trade‑offs (power/heat/memory). |
-| **Expand**         | Bring more drones online; switch feeds/possession to coordinate tasks. |
 | **Survive/Retreat**| React to hazards and threats; extract when overwhelmed. No mid‑run saves. |
 
 ---
@@ -35,11 +34,10 @@ An ultra‑realistic remote operations simulation: you authenticate into a deep�
 * `Camera3D` child runs script (`drone_camera.gd`) to manage `current`, FOV zoom, and exposure.
 * Possession toggles mouse capture; non‑possessed drones still stream for monitoring.
 
-#### Drones & Progression
+#### Drone Progression
 
-* Discover/claim derelict drones in‑station; run basic integrity/repair checks before activation.
-* Upgrades unlock modules (sensors, memory capacity, shielding, comms range/bandwidth) with trade‑offs (power/heat/memory footprint).
-* Coordinate multiple drones: switch feed/possession instantly; contextual tasks increase memory/power demand.
+* Upgrade the single drone by installing modules (sensors, memory capacity, shielding, comms range/bandwidth) with trade‑offs (power/heat/memory footprint).
+* Contextual tasks increase memory/power demand; careful routing and timing are required to avoid overloads.
 
 #### Hostile Station Systems
 
@@ -133,13 +131,13 @@ This GDD is intentionally **minimal and actionable**, following modern agile and
 #### MVP
 * Single drone with collision, possession, and FOV zoom/exposure.
 * SubViewport feed + two sensor modes (EDGE/THRM) with memory‑linked glitch visuals.
-* Operator Console: boot/auth logs, drone list, feed switch, naming flow, minimal HUD (mode/FOV/memory/signal).
-* Simple hazards (e.g., door locks, dark zones) and salvage of one additional drone.
+* Operator Console: boot/auth logs, naming flow, minimal HUD (mode/FOV/memory/signal).
+* Simple hazards (e.g., door locks, dark zones) and basic salvage/resources for upgrades.
 
 #### Post‑MVP
 * Station subsystems (power routing, doors/locks, air) with believable failure modes.
 * Active threats (rogue bots, sentries) and environmental hazards (radiation/EMP/corrosives).
-* Upgrades and trade‑offs (memory, shielding, comms bandwidth/range).
+* Deeper upgrade trees and trade‑offs (memory, shielding, comms bandwidth/range).
 * Procedural station expansion; deployable sensor nodes; richer audio design.
 
 ---
