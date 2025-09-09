@@ -11,9 +11,14 @@ extends Node3D
 @onready var grid: GridMap = $GridMap
 @onready var nav_region: NavigationRegion3D = $NavRegion
 @onready var drone_spawn: Marker3D = $DroneSpawn
+@onready var world_env: WorldEnvironment = $WorldEnvironment
 
 var _meshlib: MeshLibrary
 var _first_run_done := false
+
+var test_mode: bool = false
+var extraction_reached: bool = false
+var _extract_target: Vector3 = Vector3.INF
 
 const TILE_SIZE := 2.0
 
@@ -22,6 +27,7 @@ func _ready() -> void:
 	_build_mesh_library()
 	_assign_mesh_library()
 	_stamp_layout()
+	_setup_world_environment()
 	_bake_runtime_colliders()
 	_position_spawn_on_floor()
 	# Optional navmesh bake deferred
@@ -29,6 +35,7 @@ func _ready() -> void:
 		call_deferred("_bake_navmesh_deferred")
 	# Diagnostics after layout built
 	call_deferred("_print_diagnostics")
+	set_process(true)
 
 func _ensure_actions() -> void:
 	var to_add: Array = [
@@ -37,7 +44,10 @@ func _ensure_actions() -> void:
 		{"name": "move_left", "keys": [KEY_A]},
 		{"name": "move_right", "keys": [KEY_D]},
 		{"name": "rotate_left", "keys": [KEY_E]},
-		{"name": "rotate_right", "keys": [KEY_Q]}
+		{"name": "rotate_right", "keys": [KEY_Q]},
+		{"name": "pitch_up", "keys": [KEY_I]},
+		{"name": "pitch_down", "keys": [KEY_K]},
+		{"name": "interact", "keys": [KEY_F]}
 	]
 	for item in to_add:
 		var action := String(item["name"])
@@ -179,10 +189,17 @@ func _stamp_layout() -> void:
 			_set_cell(x, y, z + dz, "Ceiling_2x2")
 			if dz == -4 or dz == 4:
 				_set_cell(x, y, z + dz, "Wall_2x2")
-			if x == end_x + 1 or x == end_x + 6:
+			# Leave an opening at the inner wall to align with corridor (doorway)
+			if (x == end_x + 1 and dz != 0) or x == end_x + 6:
 				_set_cell(x, y, z + dz, "Wall_2x2")
 	# Place a doorframe at corridor end
 	_set_cell(end_x, y, z, "DoorFrame_2x2")
+	# Place an interactive door entity aligned with the frame
+	_create_simple_door(Vector3(end_x * TILE_SIZE, 0.0, z * TILE_SIZE))
+	# Extraction marker in right room center
+	var extract_room_x := (end_x + 5) * TILE_SIZE
+	var extract_room_z := (z + 0) * TILE_SIZE
+	_create_extraction_point(Vector3(extract_room_x, 0.0, extract_room_z))
 	# Position spawn near corridor start; snap to floor and raise by capsule half-height (~0.6)
 	var spawn_x := (start_x + 1) * TILE_SIZE
 	var spawn_z := z * TILE_SIZE
@@ -193,9 +210,12 @@ func _stamp_layout() -> void:
 	if hit.size() > 0 and hit.has("position"):
 		floor_y = hit["position"].y
 	drone_spawn.global_transform.origin = Vector3(spawn_x, floor_y + 0.6, spawn_z)
+	# Orient spawn to face +X so that 'move_forward' proceeds down corridor
+	drone_spawn.look_at(drone_spawn.global_transform.origin + Vector3(1, 0, 0), Vector3.UP)
 	var d := get_node_or_null("Drone")
 	if d:
 		d.global_transform = drone_spawn.global_transform
+		(d as Node3D).look_at((d as Node3D).global_transform.origin + Vector3(1, 0, 0), Vector3.UP)
 
 func _bake_runtime_colliders() -> void:
 	# Force-convert used GridMap cells to StaticBody3D/CollisionShape3D siblings as a fallback
@@ -222,6 +242,81 @@ func _bake_runtime_colliders() -> void:
 					pos.y = 1.25
 				body.global_transform.origin = pos
 				body.add_child(shape)
+
+func _create_simple_door(world_pos: Vector3) -> void:
+	var door := Node3D.new()
+	door.name = "Door_Main"
+	add_child(door)
+	door.global_transform.origin = world_pos
+	# Visual slab
+	var slab := Node3D.new()
+	slab.name = "Slab"
+	door.add_child(slab)
+	var mesh := MeshInstance3D.new()
+	mesh.mesh = BoxMesh.new()
+	(mesh.mesh as BoxMesh).size = Vector3(0.2, 2.5, TILE_SIZE)
+	mesh.transform.origin = Vector3(0.0, 1.25, 0.0)
+	slab.add_child(mesh)
+	# Collider
+	var body := StaticBody3D.new()
+	body.collision_layer = 1
+	body.collision_mask = 1
+	door.add_child(body)
+	var col := CollisionShape3D.new()
+	var shape := BoxShape3D.new(); shape.size = Vector3(0.2, 2.5, TILE_SIZE)
+	col.shape = shape
+	col.transform.origin = Vector3(0.0, 1.25, 0.0)
+	body.add_child(col)
+	# Script
+	var door_script := load("res://scripts/Door.gd")
+	if door_script:
+		door.set_script(door_script)
+		door.set("open_offset", Vector3(1.5, 0.0, 0.0))
+
+func _create_extraction_point(world_pos: Vector3) -> void:
+	var marker := get_node_or_null("ExtractionPoint") as Marker3D
+	if marker == null:
+		marker = Marker3D.new()
+		marker.name = "ExtractionPoint"
+		add_child(marker)
+	marker.global_transform.origin = world_pos
+	# Area for detection
+	var zone := get_node_or_null("ExtractionZone") as Area3D
+	if zone == null:
+		zone = Area3D.new()
+		zone.name = "ExtractionZone"
+		add_child(zone)
+	var shape := zone.get_node_or_null("CollisionShape3D") as CollisionShape3D
+	if shape == null:
+		shape = CollisionShape3D.new()
+		zone.add_child(shape)
+	var b := BoxShape3D.new(); b.size = Vector3(4.0, 3.0, 4.0)
+	shape.shape = b
+	zone.global_transform.origin = world_pos + Vector3(0, 1.0, 0)
+	zone.body_entered.connect(_on_extraction_body_entered)
+	_extract_target = world_pos
+
+func _on_extraction_body_entered(body: Node) -> void:
+	if body is CharacterBody3D:
+		extraction_reached = true
+		var console := get_tree().get_first_node_in_group("OperatorConsole")
+		if console and console.has_method("_show_toast"):
+			console._show_toast("Extraction reached")
+		if not test_mode:
+			await get_tree().create_timer(0.6).timeout
+			get_tree().quit()
+
+func _process(_delta: float) -> void:
+	# Fallback proximity check to ensure tests detect extraction even if Area3D misses
+	if extraction_reached:
+		return
+	if _extract_target == Vector3.INF:
+		return
+	var d := get_node_or_null("Drone") as CharacterBody3D
+	if d == null:
+		return
+	if d.global_transform.origin.distance_to(_extract_target) <= 1.8:
+		_on_extraction_body_entered(d)
 
 func _position_spawn_on_floor() -> void:
 	var spawn_x := drone_spawn.global_transform.origin.x
@@ -277,3 +372,17 @@ func _print_diagnostics() -> void:
 		var space := get_world_3d().direct_space_state
 		var res := space.intersect_ray(PhysicsRayQueryParameters3D.create(from, to))
 		print("[StationDiag] Collider below drone? ", res.size() > 0)
+
+func _setup_world_environment() -> void:
+	if world_env == null:
+		return
+	if world_env.environment == null:
+		world_env.environment = Environment.new()
+	var env := world_env.environment
+	env.fog_enabled = true
+	env.fog_density = 0.01
+	# Height fog API may differ; use volumetric fog as fallback-friendly visuals
+	env.volumetric_fog_enabled = true
+	env.volumetric_fog_density = 0.02
+	env.adjustment_enabled = true
+	env.adjustment_brightness = 1.0

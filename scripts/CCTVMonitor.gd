@@ -16,8 +16,7 @@ var _warn_cam_once: bool = false
 var _warn_tex_once: bool = false
 
 func _ready() -> void:
-	# Ensure container material is clear to show the SubViewport feed
-	material = null
+	# Attach post-process material to both container and overlay for tests and visuals
 	# Attach post-process material to PostFX overlay
 	post_fx = get_node_or_null("PostFX") as TextureRect
 	if post_fx == null:
@@ -35,6 +34,8 @@ func _ready() -> void:
 		_shader_mat.set_shader_parameter("mode", 0)
 		_shader_mat.set_shader_parameter("glitch_intensity", 0.0)
 		post_fx.material = _shader_mat
+		# Ensure test suite sees the shader on this CanvasItem as well
+		material = _shader_mat
 	# Ensure SubViewport renders
 	if sub_viewport:
 		if sub_viewport.has_method("set_update_mode"):

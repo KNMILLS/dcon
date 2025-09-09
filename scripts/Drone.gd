@@ -56,7 +56,7 @@ func _ready() -> void:
 	_update_task_timer()
 	# Single-drone: registry removed
 	# Confirm input actions exist
-	for action in ["move_forward", "move_back", "move_left", "move_right", "rotate_left", "rotate_right"]:
+	for action in ["move_forward", "move_back", "move_left", "move_right", "rotate_left", "rotate_right", "interact"]:
 		if not InputMap.has_action(action):
 			print("[Drone][WARN] Missing action:", action)
 
@@ -192,3 +192,31 @@ func _set_fov_deg(value: float) -> void:
 
 func set_visor_mode(mode: int) -> void:
 	_current_visor_mode = clamp(mode, 0, 2)
+
+func interact() -> void:
+	# Simple forward ray to detect a door within ~2.5m
+	var origin := global_transform.origin + Vector3(0, 1.0, 0)
+	var forward := -global_transform.basis.z
+	var to := origin + forward * 2.5
+	var params := PhysicsRayQueryParameters3D.create(origin, to)
+	params.collide_with_areas = false
+	params.collide_with_bodies = true
+	var hit := get_world_3d().direct_space_state.intersect_ray(params)
+	if hit.size() == 0:
+		return
+	var collider: Object = null
+	if hit.has("collider"):
+		collider = hit["collider"]
+	if collider == null or not (collider is Node):
+		return
+	# Walk up from the collider to find a node with toggle()
+	var n := collider as Node
+	while n != null and not n.has_method("toggle"):
+		n = n.get_parent()
+	if n != null and n.has_method("toggle"):
+		n.toggle()
+		# Optional toast via console
+		var console := get_tree().get_first_node_in_group("OperatorConsole")
+		if console and console.has_method("_show_toast"):
+			var state := "OPEN" if (n.has_method("is_open") and n.is_open()) else "CLOSED"
+			console._show_toast("Door: %s" % state)

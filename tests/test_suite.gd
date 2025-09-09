@@ -11,6 +11,7 @@ func _ready() -> void:
 	add_child(A)
 	await _run_foundation()
 	await _run_visor()
+	await _run_traversal()
 	R.write_json()
 	var all_ok := true
 	for r in R.results:
@@ -125,6 +126,58 @@ func _test_subviewport_config() -> void:
 func _run_visor() -> void:
 	await _test_visor_modes()
 	await _test_glitch_intensity()
+
+func _run_traversal() -> void:
+	var name := "M3.Traversal"
+	var st := await _instance_station()
+	if st == null:
+		R.mark_fail(name, "No station")
+		return
+	if "test_mode" in st:
+		st.test_mode = true
+	var d := st.get_node_or_null("Drone") as CharacterBody3D
+	if d == null:
+		R.mark_fail(name, "Drone not found")
+		st.queue_free()
+		return
+	if d.has_method("set_possessed"):
+		d.set_possessed(true)
+	await get_tree().process_frame
+	# Approach door
+	var t := 0.0
+	while t < 3.8:
+		Input.action_press("move_forward")
+		await get_tree().process_frame
+		t += get_process_delta_time()
+	Input.action_release("move_forward")
+	await get_tree().process_frame
+	# Interact to open door (press a few times)
+	if not InputMap.has_action("interact"):
+		InputMap.add_action("interact")
+	for i in range(0, 3):
+		Input.action_press("interact")
+		await get_tree().process_frame
+		Input.action_release("interact")
+		await get_tree().process_frame
+	# Move through doorway into right room towards ExtractionZone
+	t = 0.0
+	while t < 6.0:
+		Input.action_press("move_forward")
+		await get_tree().process_frame
+		t += get_process_delta_time()
+	Input.action_release("move_forward")
+	await get_tree().process_frame
+	# Give time for Area3D to detect
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var ok := false
+	if "extraction_reached" in st:
+		ok = st.extraction_reached
+	if ok:
+		R.mark_pass(name)
+	else:
+		R.mark_fail(name, "Extraction not reached")
+	st.queue_free()
 
 func _test_visor_modes() -> void:
 	var name := "M1.VisorModes"

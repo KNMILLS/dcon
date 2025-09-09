@@ -62,12 +62,14 @@ func _ensure_fullscreen() -> void:
 	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
 	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_BORDERLESS, false)
 
+
 func _ensure_input_actions() -> void:
 	var to_add: Array = [
 		{"name": "move_forward", "keys": [KEY_W, KEY_UP]},
 		{"name": "move_back", "keys": [KEY_S, KEY_DOWN]},
 		{"name": "move_left", "keys": [KEY_A, KEY_LEFT]},
 		{"name": "move_right", "keys": [KEY_D, KEY_RIGHT]},
+		{"name": "interact", "keys": [KEY_F]},
 		{"name": "zoom_feed", "keys": [KEY_R]},
 		{"name": "rotate_left", "keys": [KEY_E]},
 		{"name": "rotate_right", "keys": [KEY_Q]},
@@ -419,6 +421,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("zoom_out") and _is_drone(_drone):
 		_drone.zoom_out()
 		_update_hud()
+		return
+	if event.is_action_pressed("interact") and _is_drone(_drone):
+		if _drone.has_method("interact"):
+			_drone.interact()
 		return
 	if event.is_action_pressed("ui_page_up"):
 		_adjust_current_drone_memory(4.0)
