@@ -3,6 +3,7 @@ extends SubViewportContainer
 @onready var sub_viewport: SubViewport = $SubViewport
 @onready var viewport_camera: Camera3D = $SubViewport/ViewportCamera
 var _shader_mat: ShaderMaterial
+@onready var _glitch_shader: Shader = preload("res://shaders/glitch_under_load.gdshader")
 var _source_camera: Camera3D = null
 var _last_diag_time := 0.0
 var _last_vp_pos := Vector3.INF
@@ -14,8 +15,13 @@ var _warn_cam_once: bool = false
 var _warn_tex_once: bool = false
 
 func _ready() -> void:
-	# Disable post-process material to ensure feed visibility
-	material = null
+	# Attach post-process material directly to this CanvasItem
+	if _glitch_shader:
+		_shader_mat = ShaderMaterial.new()
+		_shader_mat.shader = _glitch_shader
+		_shader_mat.set_shader_parameter("mode", 0)
+		_shader_mat.set_shader_parameter("glitch_intensity", 0.0)
+		material = _shader_mat
 	# Ensure SubViewport renders
 	if sub_viewport:
 		# If container has stretch=true, don't set size directly; ensure update mode instead
@@ -23,6 +29,9 @@ func _ready() -> void:
 			sub_viewport.set_update_mode(SubViewport.UPDATE_ALWAYS)
 		if sub_viewport.has_method("set_clear_mode"):
 			sub_viewport.set_clear_mode(SubViewport.CLEAR_MODE_ALWAYS)
+		# Ensure a sensible minimum render size for tests/clarity
+		if sub_viewport.size.x < 320 or sub_viewport.size.y < 180:
+			sub_viewport.size = Vector2i(640, 360)
 	# Ensure there is an active camera for this viewport
 	if is_instance_valid(viewport_camera):
 		viewport_camera.current = true
@@ -41,14 +50,14 @@ func _process(_delta: float) -> void:
 		viewport_camera.global_transform = _source_camera.global_transform
 		# Diagnostics: every 0.5s log positions to confirm following
 		if enable_debug_logging:
-			var t := Time.get_ticks_msec()
+			var t: int = Time.get_ticks_msec()
 			if t - _last_diag_time > 500:
 				_last_diag_time = t
-				var vp_pos := viewport_camera.global_transform.origin
-				var src_pos := _source_camera.global_transform.origin
+				var vp_pos: Vector3 = viewport_camera.global_transform.origin
+				var src_pos: Vector3 = _source_camera.global_transform.origin
 				if _last_vp_pos != Vector3.INF and _last_src_pos != Vector3.INF:
-					var dvp := vp_pos - _last_vp_pos
-					var dsrc := src_pos - _last_src_pos
+					var dvp: Vector3 = vp_pos - _last_vp_pos
+					var dsrc: Vector3 = src_pos - _last_src_pos
 					print("[MonitorDiag] vp ", vp_pos, " dvp ", dvp, " | src ", src_pos, " dsrc ", dsrc)
 				_last_vp_pos = vp_pos
 				_last_src_pos = src_pos
@@ -94,19 +103,25 @@ func _copy_camera_settings(cam: Camera3D) -> void:
 
 func set_memory_pressure(ratio: float) -> void:
 	if _shader_mat:
-		_shader_mat.set_shader_parameter("memory_pressure", clamp(ratio, 0.0, 1.0))
+		var r: float = clampf(ratio, 0.0, 1.0)
+		_shader_mat.set_shader_parameter("memory_pressure", r)
+		_shader_mat.set_shader_parameter("glitch_intensity", r)
+
+func set_visor_mode(mode: int) -> void:
+	if _shader_mat:
+		_shader_mat.set_shader_parameter("mode", clamp(mode, 0, 2))
 
 func _update_debug() -> void:
-	var lbl := get_node_or_null("DebugLabel") as Label
+	var lbl: Label = get_node_or_null("DebugLabel") as Label
 	if lbl == null:
 		return
-	var vp_ok := sub_viewport != null and sub_viewport.size.x > 0 and sub_viewport.size.y > 0
-	var cam_ok := is_instance_valid(viewport_camera) and viewport_camera.current
-	var tex_ok := false
-	var w := 0
-	var h := 0
+	var vp_ok: bool = sub_viewport != null and sub_viewport.size.x > 0 and sub_viewport.size.y > 0
+	var cam_ok: bool = is_instance_valid(viewport_camera) and viewport_camera.current
+	var tex_ok: bool = false
+	var w: int = 0
+	var h: int = 0
 	if sub_viewport != null:
-		var tex := sub_viewport.get_texture()
+		var tex: ViewportTexture = sub_viewport.get_texture()
 		tex_ok = tex != null
 		w = sub_viewport.size.x
 		h = sub_viewport.size.y

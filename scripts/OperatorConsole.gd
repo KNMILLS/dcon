@@ -77,7 +77,10 @@ func _ensure_input_actions() -> void:
 		{"name": "possess_toggle", "keys": [KEY_TAB]},
 		{"name": "escape_release", "keys": [KEY_ESCAPE]},
 		{"name": "ui_page_up", "keys": [KEY_PAGEUP]},
-		{"name": "ui_page_down", "keys": [KEY_PAGEDOWN]}
+		{"name": "ui_page_down", "keys": [KEY_PAGEDOWN]},
+		{"name": "visor_none", "keys": [KEY_0]},
+		{"name": "visor_edge", "keys": [KEY_1]},
+		{"name": "visor_thermal", "keys": [KEY_2]}
 	]
 	for item in to_add:
 		var action := String(item["name"])
@@ -386,6 +389,19 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_page_down"):
 		_adjust_current_drone_memory(-4.0)
 		_apply_feed_to_monitor()
+		return
+	# VISOR mode switching
+	if event.is_action_pressed("visor_none") and _monitor and _monitor.has_method("set_visor_mode"):
+		_monitor.set_visor_mode(0)
+		_show_toast("VISOR: NONE")
+		return
+	if event.is_action_pressed("visor_edge") and _monitor and _monitor.has_method("set_visor_mode"):
+		_monitor.set_visor_mode(1)
+		_show_toast("VISOR: EDGE")
+		return
+	if event.is_action_pressed("visor_thermal") and _monitor and _monitor.has_method("set_visor_mode"):
+		_monitor.set_visor_mode(2)
+		_show_toast("VISOR: THERMAL")
 		return
 
 func _update_feed_title() -> void:
