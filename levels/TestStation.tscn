@@ -1,0 +1,23 @@
+[gd_scene load_steps=4 format=3 uid="uid://b01e26nict1q"]
+
+[ext_resource type="Script" uid="uid://vragvu57aoup" path="res://levels/TestStation.gd" id="1_dqpq2"]
+[ext_resource type="PackedScene" uid="uid://0c20g383weqj" path="res://scenes/Drone.tscn" id="2_xpd76"]
+[ext_resource type="Script" uid="uid://braosuafdll4p" path="res://scripts/Drone.gd" id="3_gmf64"]
+
+[node name="TestStation" type="Node3D"]
+script = ExtResource("1_dqpq2")
+
+[node name="GridMap" type="GridMap" parent="."]
+
+[node name="DroneSpawn" type="Marker3D" parent="."]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+
+[node name="FillLightA" type="OmniLight3D" parent="."]
+
+[node name="FillLightB" type="OmniLight3D" parent="."]
+
+[node name="NavRegion" type="NavigationRegion3D" parent="."]
+
+[node name="Drone" type="CharacterBody3D" parent="." instance=ExtResource("2_xpd76")]
+script = ExtResource("3_gmf64")

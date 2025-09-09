@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://dm8hib4xterxr"]
+
+[ext_resource type="Script" uid="uid://bftxq74nt4nvd" path="res://tests/test_station_movement.gd" id="1_arf2p"]
+
+[node name="TestRunner" type="Node"]
+script = ExtResource("1_arf2p")

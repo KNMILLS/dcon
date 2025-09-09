@@ -4,7 +4,7 @@ extends Control
 @onready var startup_link_scene: PackedScene = preload("res://scenes/StartupLink.tscn")
 @onready var drone_scene: PackedScene = preload("res://scenes/Drone.tscn")
 @onready var naming_overlay_scene: PackedScene = preload("res://ui/NamingOverlay.tscn")
-@onready var station_scene: PackedScene = preload("res://scenes/SpaceStation.tscn")
+@onready var station_scene: PackedScene = preload("res://levels/TestStation.tscn")
 
 var _drone: Node = null
 var _monitor: Node
@@ -14,6 +14,7 @@ var _feed_title: Label
 var _status_label: Label
 var _status_shown: bool = false
 @export var debug_mode: bool = true
+@export var enable_debug_logging: bool = false
 var _toast: Label
 var _naming_overlay: Control
 var _naming_target: Node = null
@@ -32,10 +33,13 @@ func _get_memory_ratio(d: Node) -> float:
 	return 0.0
 
 func _ready() -> void:
+	set_process_input(true)
+	set_process_unhandled_input(true)
 	_ensure_fullscreen()
 	_ensure_input_actions()
 	if not debug_mode:
 		await _show_startup_then_console()
+	add_to_group("OperatorConsole")
 	_build_console_ui()
 	_init_station_and_drone()
 	_apply_feed_to_monitor()
@@ -48,19 +52,30 @@ func _process(_delta: float) -> void:
 		var mins := elapsed / 60
 		var secs := elapsed % 60
 		_timer_label.text = "SESSION %02d:%02d" % [mins, secs]
+	# Update live XYZ
+	var pos_label := get_node_or_null("ConsoleRoot/TopBar/PosLabel") as Label
+	if pos_label and _drone and _drone is Node3D:
+		var p := (_drone as Node3D).global_transform.origin
+		pos_label.text = "XYZ: %.2f, %.2f, %.2f" % [p.x, p.y, p.z]
 
 func _ensure_fullscreen() -> void:
-	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN)
+	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_BORDERLESS, false)
 
 func _ensure_input_actions() -> void:
 	var to_add: Array = [
-		{"name": "move_forward", "keys": [KEY_W]},
-		{"name": "move_back", "keys": [KEY_S]},
-		{"name": "move_left", "keys": [KEY_A]},
-		{"name": "move_right", "keys": [KEY_D]},
+		{"name": "move_forward", "keys": [KEY_W, KEY_UP]},
+		{"name": "move_back", "keys": [KEY_S, KEY_DOWN]},
+		{"name": "move_left", "keys": [KEY_A, KEY_LEFT]},
+		{"name": "move_right", "keys": [KEY_D, KEY_RIGHT]},
 		{"name": "mouse_look", "mouse": true},
-		{"name": "zoom_feed", "keys": [KEY_Q]},
-		{"name": "close", "keys": [KEY_ESCAPE]},
+		{"name": "zoom_feed", "keys": [KEY_R]},
+		{"name": "rotate_left", "keys": [KEY_E]},
+		{"name": "rotate_right", "keys": [KEY_Q]},
+		{"name": "zoom_in", "keys": [KEY_EQUAL], "wheel_up": true},
+		{"name": "zoom_out", "keys": [KEY_MINUS], "wheel_down": true},
+		{"name": "possess_toggle", "keys": [KEY_TAB]},
+		{"name": "escape_release", "keys": [KEY_ESCAPE]},
 		{"name": "ui_page_up", "keys": [KEY_PAGEUP]},
 		{"name": "ui_page_down", "keys": [KEY_PAGEDOWN]}
 	]
@@ -70,20 +85,48 @@ func _ensure_input_actions() -> void:
 			InputMap.add_action(action)
 		if item.has("keys"):
 			for key in item["keys"]:
+				# Add both keycode and physical_keycode bindings for reliability across layouts
 				var ev := InputEventKey.new()
 				ev.physical_keycode = key
 				if not _has_event(action, ev):
 					InputMap.action_add_event(action, ev)
+				var ev2 := InputEventKey.new()
+				ev2.keycode = key
+				if not _has_event(action, ev2):
+					InputMap.action_add_event(action, ev2)
 		if item.has("mouse") and item["mouse"]:
 			var mev := InputEventMouseMotion.new()
 			if not _has_event(action, mev):
 				InputMap.action_add_event(action, mev)
+		if item.has("wheel_up") and item["wheel_up"] == true:
+			var mwu := InputEventMouseButton.new()
+			mwu.button_index = MOUSE_BUTTON_WHEEL_UP
+			if not _has_event(action, mwu):
+				InputMap.action_add_event(action, mwu)
+		if item.has("wheel_down") and item["wheel_down"] == true:
+			var mwd := InputEventMouseButton.new()
+			mwd.button_index = MOUSE_BUTTON_WHEEL_DOWN
+			if not _has_event(action, mwd):
+				InputMap.action_add_event(action, mwd)
+
+	# Enforce swapped bindings for rotate actions
+	_set_action_to_single_key("rotate_left", KEY_E)
+	_set_action_to_single_key("rotate_right", KEY_Q)
 
 func _has_event(action: String, ev: InputEvent) -> bool:
 	for e in InputMap.action_get_events(action):
 		if e.as_text() == ev.as_text():
 			return true
 	return false
+
+func _set_action_to_single_key(action: String, keycode: int) -> void:
+	if not InputMap.has_action(action):
+		return
+	for e in InputMap.action_get_events(action):
+		InputMap.action_erase_event(action, e)
+	var ev := InputEventKey.new()
+	ev.physical_keycode = keycode
+	InputMap.action_add_event(action, ev)
 
 func _show_startup_then_console() -> void:
 	var startup := startup_link_scene.instantiate()
@@ -119,6 +162,10 @@ func _build_console_ui() -> void:
 
 	_status_label = Label.new()
 	_status_label.text = "DRONE ONLINE"
+	# Live XYZ readout
+	var pos := Label.new()
+	pos.name = "PosLabel"
+	top.add_child(pos)
 	top.add_child(_status_label)
 
 	var main := HBoxContainer.new()
@@ -141,6 +188,9 @@ func _build_console_ui() -> void:
 	if _monitor is Control:
 		(_monitor as Control).size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		(_monitor as Control).size_flags_vertical = Control.SIZE_EXPAND_FILL
+	# Propagate debug flag to monitor so its on-screen label obeys our setting
+	if _monitor:
+		_monitor.set("enable_debug_logging", enable_debug_logging)
 	main.add_child(_monitor)
 
 	# Single-drone: no feed toggle or spawn controls
@@ -155,6 +205,16 @@ func _build_console_ui() -> void:
 	_toast.offset_bottom = -12
 	add_child(_toast)
 
+	var hint := Label.new()
+	hint.name = "Hint"
+	hint.text = "[Tab] capture/release  |  Scroll or +/-: FOV  |  Q/E: rotate  |  R: monitor zoom"
+	hint.modulate = Color(0.85, 0.85, 0.9, 0.9)
+	hint.anchor_left = 0.0
+	hint.anchor_bottom = 1.0
+	hint.offset_left = 8
+	hint.offset_bottom = -36
+	add_child(hint)
+
 	# Single-drone: no pool required
 
 	# Naming overlay disabled: auto-assign codename at startup
@@ -168,10 +228,25 @@ func _build_console_ui() -> void:
 func _init_station_and_drone() -> void:
 	_drone = null
 	if station_scene:
+		if enable_debug_logging:
+			print("[Console] Instancing station")
 		_station = station_scene.instantiate()
 		_station.name = "SpaceStationInstance"
 		add_child(_station)
+		await get_tree().process_frame
+		if enable_debug_logging:
+			print("[Console] Station ready: ", _station)
 		var d := _station.get_node_or_null("Drone")
+		if d == null and is_instance_valid(_station.get_node_or_null("DroneSpawn")):
+			if enable_debug_logging:
+				print("[Console] Spawning drone at DroneSpawn")
+			var spawn := _station.get_node("DroneSpawn") as Marker3D
+			var new_drone := drone_scene.instantiate()
+			new_drone.name = "Drone"
+			_station.add_child(new_drone)
+			new_drone.add_to_group("PlayerDrone")
+			new_drone.global_transform = spawn.global_transform
+			d = new_drone
 		if d != null:
 			_drone = d
 			if d.has_signal("memory_pressure_changed"):
@@ -184,6 +259,8 @@ func _init_station_and_drone() -> void:
 			if cam:
 				cam.current = true
 			_update_feed_title()
+			# Bind feed now that drone exists
+			_apply_feed_to_monitor()
 
 func _spawn_drones(_count: int) -> void:
 	# Single-drone: spawning disabled
@@ -200,18 +277,33 @@ func _update_active_highlight() -> void:
 func _apply_feed_to_monitor() -> void:
 	if _drone == null:
 		return
+	# Resolve the actual camera and pass it directly for robustness
+	var cam := _drone.get_node_or_null("CameraPivot/Camera3D") as Camera3D
 	if _monitor and _monitor.has_method("set_feed"):
-		_monitor.set_feed(_drone)
+		if cam:
+			_monitor.set_feed(cam)
+		else:
+			_monitor.set_feed(_drone)
 	var ratio: float = _get_memory_ratio(_drone)
 	if _monitor and _monitor.has_method("set_memory_pressure"):
 		_monitor.set_memory_pressure(ratio)
 	_update_status()
 	_update_feed_title()
+	# Diagnostics: confirm camera binding
+	var cam_diag := cam
+	if cam_diag:
+		if enable_debug_logging:
+			print("[ConsoleDiag] Drone camera path:", cam_diag.get_path())
+	if _monitor and _monitor.has_node("SubViewport"):
+		var vp := _monitor.get_node("SubViewport") as SubViewport
+		var tex := vp.get_texture()
+		if enable_debug_logging:
+			print("[ConsoleDiag] VP size:", vp.size, " cam_current:", (cam_diag and cam_diag.current), " tex:", tex != null)
 
-	# In debug_mode, auto-possess and force camera current
-	if debug_mode and _is_drone(_drone):
+	# Auto-possess and force camera current on startup
+	if _is_drone(_drone):
 		_drone.set_possessed(true)
-		var cam := _drone.get_node_or_null("CameraPivot/Camera3D") as Camera3D
+		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 		if cam:
 			cam.current = true
 
@@ -228,6 +320,17 @@ func _release_possession() -> void:
 		_drone.set_possessed(false)
 	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	_update_status()
+
+func _toggle_possession() -> void:
+	if not _is_drone(_drone):
+		return
+	if _drone.is_possessed():
+		_release_possession()
+	else:
+		_drone.set_possessed(true)
+		var cam := _drone.get_node_or_null("CameraPivot/Camera3D") as Camera3D
+		if cam:
+			cam.current = true
 
 func _toggle_zoom() -> void:
 	_zoomed = not _zoomed
@@ -254,20 +357,57 @@ func _adjust_current_drone_memory(delta_mb: float) -> void:
 			else:
 				mem.release(-delta_mb)
 
+func _input(event: InputEvent) -> void:
+	if event is InputEventMouseMotion and _is_drone(_drone):
+		_drone.apply_look(event.relative)
+
 func _unhandled_input(event: InputEvent) -> void:
-	if event.is_action_pressed("close"):
+	if event is InputEventMouseMotion and _is_drone(_drone):
+		if enable_debug_logging:
+			print("[Console] mouse motion ", event.relative)
+		_drone.apply_look(event.relative)
+		return
+	# Diagnostics: log movement/rotation key events
+	if event is InputEventKey and event.pressed:
+		if enable_debug_logging:
+			if event.physical_keycode in [KEY_W, KEY_UP]:
+				print("[ConsoleDiag] move_forward pressed")
+			if event.physical_keycode in [KEY_S, KEY_DOWN]:
+				print("[ConsoleDiag] move_back pressed")
+			if event.physical_keycode in [KEY_A, KEY_LEFT]:
+				print("[ConsoleDiag] move_left pressed")
+			if event.physical_keycode in [KEY_D, KEY_RIGHT]:
+				print("[ConsoleDiag] move_right pressed")
+			if event.physical_keycode == KEY_Q:
+				print("[ConsoleDiag] rotate_right pressed")
+			if event.physical_keycode == KEY_E:
+				print("[ConsoleDiag] rotate_left pressed")
+	if event.is_action_pressed("possess_toggle"):
+		if enable_debug_logging:
+			print("[Console] possess_toggle")
+		_toggle_possession()
+		get_viewport().set_input_as_handled()
+		return
+	if event.is_action_pressed("escape_release"):
 		_release_possession()
-	elif event.is_action_pressed("zoom_feed"):
+		return
+	if event.is_action_pressed("zoom_feed"):
 		_toggle_zoom()
-	elif event.is_action_pressed("ui_page_up"):
+		return
+	if event.is_action_pressed("zoom_in") and _is_drone(_drone):
+		_drone.zoom_in()
+		return
+	if event.is_action_pressed("zoom_out") and _is_drone(_drone):
+		_drone.zoom_out()
+		return
+	if event.is_action_pressed("ui_page_up"):
 		_adjust_current_drone_memory(4.0)
 		_apply_feed_to_monitor()
-	elif event.is_action_pressed("ui_page_down"):
+		return
+	if event.is_action_pressed("ui_page_down"):
 		_adjust_current_drone_memory(-4.0)
 		_apply_feed_to_monitor()
-	elif event is InputEventMouseMotion:
-		if _is_drone(_drone):
-			_drone.apply_look(event.relative)
+		return
 
 func _update_feed_title() -> void:
 	var code: String = "—"

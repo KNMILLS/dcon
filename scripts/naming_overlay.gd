@@ -25,7 +25,7 @@ func open_for(drone: Node, suggested: String = "") -> void:
 	_feedback.text = ""
 	visible = true
 	_edit.grab_focus()
-	get_tree().set_input_as_handled()
+	get_viewport().set_input_as_handled()
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not visible:
@@ -69,5 +69,3 @@ func _generate_suggested_callsign() -> String:
 	var letters: String = bank[index]
 	var number: int = int(randi() % 90) + 10
 	return "%s %02d" % [letters, number]
-
-
