@@ -2,6 +2,7 @@ extends SubViewportContainer
 
 @onready var sub_viewport: SubViewport = $SubViewport
 @onready var viewport_camera: Camera3D = $SubViewport/ViewportCamera
+var post_fx: TextureRect = null
 var _shader_mat: ShaderMaterial
 @onready var _glitch_shader: Shader = preload("res://shaders/glitch_under_load.gdshader")
 var _source_camera: Camera3D = null
@@ -15,21 +16,37 @@ var _warn_cam_once: bool = false
 var _warn_tex_once: bool = false
 
 func _ready() -> void:
-	# Attach post-process material directly to this CanvasItem
-	if _glitch_shader:
+	# Ensure container material is clear to show the SubViewport feed
+	material = null
+	# Attach post-process material to PostFX overlay
+	post_fx = get_node_or_null("PostFX") as TextureRect
+	if post_fx == null:
+		post_fx = TextureRect.new()
+		post_fx.name = "PostFX"
+		post_fx.anchor_right = 1.0
+		post_fx.anchor_bottom = 1.0
+		post_fx.grow_horizontal = Control.GROW_DIRECTION_BOTH
+		post_fx.grow_vertical = Control.GROW_DIRECTION_BOTH
+		post_fx.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(post_fx)
+	if _glitch_shader and is_instance_valid(post_fx):
 		_shader_mat = ShaderMaterial.new()
 		_shader_mat.shader = _glitch_shader
 		_shader_mat.set_shader_parameter("mode", 0)
 		_shader_mat.set_shader_parameter("glitch_intensity", 0.0)
-		material = _shader_mat
+		post_fx.material = _shader_mat
 	# Ensure SubViewport renders
 	if sub_viewport:
-		# If container has stretch=true, don't set size directly; ensure update mode instead
 		if sub_viewport.has_method("set_update_mode"):
 			sub_viewport.set_update_mode(SubViewport.UPDATE_ALWAYS)
 		if sub_viewport.has_method("set_clear_mode"):
 			sub_viewport.set_clear_mode(SubViewport.CLEAR_MODE_ALWAYS)
 		# SubViewportContainer has stretch=true; avoid changing size at runtime
+		# Bind viewport texture to PostFX
+		if is_instance_valid(post_fx):
+			var tex: ViewportTexture = sub_viewport.get_texture()
+			if tex:
+				post_fx.texture = tex
 	# Ensure there is an active camera for this viewport
 	if is_instance_valid(viewport_camera):
 		viewport_camera.current = true
@@ -46,7 +63,6 @@ func _ready() -> void:
 func _process(_delta: float) -> void:
 	if is_instance_valid(_source_camera) and is_instance_valid(viewport_camera):
 		viewport_camera.global_transform = _source_camera.global_transform
-		# Diagnostics: every 0.5s log positions to confirm following
 		if enable_debug_logging:
 			var t: int = Time.get_ticks_msec()
 			if t - _last_diag_time > 500:
@@ -72,16 +88,18 @@ func set_feed(feed_node: Node) -> void:
 			cam = feed_node.get_node_or_null("CameraPivot/Camera3D") as Camera3D
 	_source_camera = cam
 	if cam:
-		# Render the same world as the source camera
 		sub_viewport.world_3d = cam.get_world_3d()
 		_copy_camera_settings(cam)
-		# Make sure viewport has an active camera
 		if is_instance_valid(viewport_camera):
 			viewport_camera.current = true
-			# Immediately sync transform so feed updates without waiting a frame
 			viewport_camera.global_transform = cam.global_transform
 		if sub_viewport and sub_viewport.size == Vector2i.ZERO:
 			sub_viewport.size = Vector2i(640, 360)
+		# Bind viewport texture to PostFX in case it changed
+		if is_instance_valid(post_fx):
+			var tex2: ViewportTexture = sub_viewport.get_texture()
+			if tex2:
+				post_fx.texture = tex2
 		if enable_debug_logging:
 			print("[Monitor] Feed bound to camera:", cam.get_path())
 		emit_signal("feed_bound", cam)
