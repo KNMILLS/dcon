@@ -19,6 +19,7 @@ var _toast: Label
 var _naming_target: Node = null
 var _zoomed: bool = false
 var _station: Node = null
+var _visor_mode: int = 0 # 0 NONE, 1 EDGE, 2 THERMAL
 
 func _is_drone(n: Node) -> bool:
 	return n != null and n.has_method("set_possessed") and n.has_method("apply_look")
@@ -157,6 +158,33 @@ func _build_console_ui() -> void:
 	top.add_child(pos)
 	top.add_child(_status_label)
 
+	# Minimal diegetic HUD labels
+	var spacer := Control.new()
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	top.add_child(spacer)
+
+	var mode_lbl := Label.new()
+	mode_lbl.name = "ModeLabel"
+	mode_lbl.text = "MODE: NONE"
+	top.add_child(mode_lbl)
+
+	var mem_lbl := Label.new()
+	mem_lbl.name = "MemoryLabel"
+	mem_lbl.text = "MEM: 0%"
+	mem_lbl.add_theme_color_override("font_color", Color(0.9, 0.95, 1.0))
+	top.add_child(mem_lbl)
+
+	var fov_lbl := Label.new()
+	fov_lbl.name = "FOVLabel"
+	fov_lbl.text = "FOV: —"
+	top.add_child(fov_lbl)
+
+	var sig_lbl := Label.new()
+	sig_lbl.name = "SigLatLabel"
+	sig_lbl.text = "SIG: 4/5 | LAT: 120ms"
+	sig_lbl.modulate = Color(0.85, 0.85, 0.9, 0.9)
+	top.add_child(sig_lbl)
+
 	var main := HBoxContainer.new()
 	main.name = "MainArea"
 	main.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -240,6 +268,9 @@ func _init_station_and_drone() -> void:
 			_drone = d
 			if d.has_signal("memory_pressure_changed"):
 				d.memory_pressure_changed.connect(_on_drone_pressure_changed.bind(d))
+			# Track FOV changes for HUD
+			if d.has_signal("fov_changed"):
+				d.fov_changed.connect(_on_drone_fov_changed)
 			# Auto-name and ensure camera is current
 			if _is_drone(_drone) and not _drone.is_named:
 				_drone.codename = _generate_callsign()
@@ -250,6 +281,7 @@ func _init_station_and_drone() -> void:
 			_update_feed_title()
 			# Bind feed now that drone exists
 			_apply_feed_to_monitor()
+			_update_hud()
 
 func _spawn_drones(_count: int) -> void:
 	# Single-drone: spawning disabled
@@ -328,6 +360,10 @@ func _on_drone_pressure_changed(ratio: float, _unused_drone: Node) -> void:
 	if _monitor and _monitor.has_method("set_memory_pressure"):
 		_monitor.set_memory_pressure(ratio)
 	_update_status()
+	_update_hud()
+
+func _on_drone_fov_changed(_fov: float) -> void:
+	_update_hud()
 
 func _update_drone_list_bars() -> void:
 	# Single-drone: no list bars
@@ -378,9 +414,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if event.is_action_pressed("zoom_in") and _is_drone(_drone):
 		_drone.zoom_in()
+		_update_hud()
 		return
 	if event.is_action_pressed("zoom_out") and _is_drone(_drone):
 		_drone.zoom_out()
+		_update_hud()
 		return
 	if event.is_action_pressed("ui_page_up"):
 		_adjust_current_drone_memory(4.0)
@@ -393,15 +431,27 @@ func _unhandled_input(event: InputEvent) -> void:
 	# VISOR mode switching
 	if event.is_action_pressed("visor_none") and _monitor and _monitor.has_method("set_visor_mode"):
 		_monitor.set_visor_mode(0)
+		_visor_mode = 0
+		if _is_drone(_drone) and _drone.has_method("set_visor_mode"):
+			_drone.set_visor_mode(0)
 		_show_toast("VISOR: NONE")
+		_update_hud()
 		return
 	if event.is_action_pressed("visor_edge") and _monitor and _monitor.has_method("set_visor_mode"):
 		_monitor.set_visor_mode(1)
+		_visor_mode = 1
+		if _is_drone(_drone) and _drone.has_method("set_visor_mode"):
+			_drone.set_visor_mode(1)
 		_show_toast("VISOR: EDGE")
+		_update_hud()
 		return
 	if event.is_action_pressed("visor_thermal") and _monitor and _monitor.has_method("set_visor_mode"):
 		_monitor.set_visor_mode(2)
+		_visor_mode = 2
+		if _is_drone(_drone) and _drone.has_method("set_visor_mode"):
+			_drone.set_visor_mode(2)
 		_show_toast("VISOR: THERMAL")
+		_update_hud()
 		return
 
 func _update_feed_title() -> void:
@@ -418,6 +468,29 @@ func _update_status() -> void:
 		_status_label.visible = true
 		await get_tree().create_timer(1.2).timeout
 		_status_label.visible = false
+
+func _update_hud() -> void:
+	var top := get_node_or_null("ConsoleRoot/TopBar") as HBoxContainer
+	if top == null:
+		return
+	var mode_lbl := top.get_node_or_null("ModeLabel") as Label
+	var mem_lbl := top.get_node_or_null("MemoryLabel") as Label
+	var fov_lbl := top.get_node_or_null("FOVLabel") as Label
+	var sig_lbl := top.get_node_or_null("SigLatLabel") as Label
+	if mode_lbl:
+		var mode_str := "NONE" if _visor_mode == 0 else ("EDGE" if _visor_mode == 1 else "THERMAL")
+		mode_lbl.text = "MODE: %s" % mode_str
+	if mem_lbl and _is_drone(_drone):
+		var mem: DroneMemory = _drone.memory as DroneMemory
+		if mem:
+			var pct := int(round(mem.get_pressure_ratio() * 100.0))
+			mem_lbl.text = "MEM: %d%%" % pct
+	if fov_lbl and _is_drone(_drone):
+		var cam := _drone.get_node_or_null("CameraPivot/Camera3D") as Camera3D
+		if cam:
+			fov_lbl.text = "FOV: %d" % int(round(cam.fov))
+	if sig_lbl:
+		sig_lbl.text = "SIG: 4/5 | LAT: 120ms"
 
 func _show_toast(msg: String) -> void:
 	if _toast == null:

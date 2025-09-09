@@ -16,6 +16,7 @@ extends CharacterBody3D
 @export var enable_debug_logging: bool = false
 
 signal memory_pressure_changed(ratio: float)
+signal fov_changed(fov_deg: float)
 
 @export var codename: String = "UNNAMED"
 @export var capabilities: PackedStringArray = ["SCAN"]
@@ -33,6 +34,8 @@ var _debug_first_tick_logged: bool = false
 var _debug_wasd_logged: bool = false
 var _debug_rotate_logged: bool = false
 var _debug_look_logged: bool = false
+var _tick_task_token: int = -1
+var _current_visor_mode: int = 0 # 0=NONE,1=EDGE,2=THERMAL
 
 func _ready() -> void:
 	if enable_debug_logging:
@@ -43,6 +46,8 @@ func _ready() -> void:
 		camera.fov = clampf(default_fov_deg, fov_min_deg, fov_max_deg)
 	if memory:
 		memory.pressure_changed.connect(_on_memory_pressure_changed)
+		# Ensure idle baseline is reflected in used_mb at startup
+		memory.set_used_mb(maxf(memory.used_mb, memory.idle_baseline_mb))
 	_task_timer = Timer.new()
 	_task_timer.autostart = true
 	_task_timer.one_shot = false
@@ -149,7 +154,26 @@ func _update_task_timer() -> void:
 		_task_timer.start()
 
 func _on_task_tick() -> void:
-	pass 
+	if memory == null:
+		return
+	# Release previous transient load token
+	if _tick_task_token != -1:
+		memory.end_task(_tick_task_token)
+		_tick_task_token = -1
+	# Compute per-tick transient memory cost based on possession and visor mode
+	var control_factor := 1.0 if _is_possessed else 0.5
+	var mode_cost := 0.15
+	match _current_visor_mode:
+		0:
+			mode_cost = 0.15
+		1:
+			mode_cost = 0.35
+		2:
+			mode_cost = 0.5
+	var tick_cost := mode_cost * control_factor
+	_tick_task_token = memory.begin_task(tick_cost)
+	# Ensure idle baseline never drops
+	memory.set_used_mb(maxf(memory.used_mb, memory.idle_baseline_mb))
 
 func is_possessed() -> bool:
 	return _is_possessed
@@ -164,3 +188,7 @@ func _set_fov_deg(value: float) -> void:
 	if not is_instance_valid(camera):
 		return
 	camera.fov = clampf(value, fov_min_deg, fov_max_deg)
+	fov_changed.emit(camera.fov)
+
+func set_visor_mode(mode: int) -> void:
+	_current_visor_mode = clamp(mode, 0, 2)
