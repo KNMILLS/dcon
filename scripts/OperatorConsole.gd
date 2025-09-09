@@ -16,7 +16,6 @@ var _status_shown: bool = false
 @export var debug_mode: bool = true
 @export var enable_debug_logging: bool = false
 var _toast: Label
-var _naming_overlay: Control
 var _naming_target: Node = null
 var _zoomed: bool = false
 var _station: Node = null
@@ -49,7 +48,7 @@ func _ready() -> void:
 func _process(_delta: float) -> void:
 	if is_instance_valid(_timer_label):
 		var elapsed := int(Time.get_unix_time_from_system() - _session_start_time_s)
-		var mins := elapsed / 60
+		var mins := int(elapsed / 60.0)
 		var secs := elapsed % 60
 		_timer_label.text = "SESSION %02d:%02d" % [mins, secs]
 	# Update live XYZ
@@ -68,12 +67,13 @@ func _ensure_input_actions() -> void:
 		{"name": "move_back", "keys": [KEY_S, KEY_DOWN]},
 		{"name": "move_left", "keys": [KEY_A, KEY_LEFT]},
 		{"name": "move_right", "keys": [KEY_D, KEY_RIGHT]},
-		{"name": "mouse_look", "mouse": true},
 		{"name": "zoom_feed", "keys": [KEY_R]},
 		{"name": "rotate_left", "keys": [KEY_E]},
 		{"name": "rotate_right", "keys": [KEY_Q]},
-		{"name": "zoom_in", "keys": [KEY_EQUAL], "wheel_up": true},
-		{"name": "zoom_out", "keys": [KEY_MINUS], "wheel_down": true},
+		{"name": "zoom_in", "keys": [KEY_EQUAL]},
+		{"name": "zoom_out", "keys": [KEY_MINUS]},
+		{"name": "pitch_up", "keys": [KEY_I]},
+		{"name": "pitch_down", "keys": [KEY_K]},
 		{"name": "possess_toggle", "keys": [KEY_TAB]},
 		{"name": "escape_release", "keys": [KEY_ESCAPE]},
 		{"name": "ui_page_up", "keys": [KEY_PAGEUP]},
@@ -94,20 +94,6 @@ func _ensure_input_actions() -> void:
 				ev2.keycode = key
 				if not _has_event(action, ev2):
 					InputMap.action_add_event(action, ev2)
-		if item.has("mouse") and item["mouse"]:
-			var mev := InputEventMouseMotion.new()
-			if not _has_event(action, mev):
-				InputMap.action_add_event(action, mev)
-		if item.has("wheel_up") and item["wheel_up"] == true:
-			var mwu := InputEventMouseButton.new()
-			mwu.button_index = MOUSE_BUTTON_WHEEL_UP
-			if not _has_event(action, mwu):
-				InputMap.action_add_event(action, mwu)
-		if item.has("wheel_down") and item["wheel_down"] == true:
-			var mwd := InputEventMouseButton.new()
-			mwd.button_index = MOUSE_BUTTON_WHEEL_DOWN
-			if not _has_event(action, mwd):
-				InputMap.action_add_event(action, mwd)
 
 	# Enforce swapped bindings for rotate actions
 	_set_action_to_single_key("rotate_left", KEY_E)
@@ -119,7 +105,7 @@ func _has_event(action: String, ev: InputEvent) -> bool:
 			return true
 	return false
 
-func _set_action_to_single_key(action: String, keycode: int) -> void:
+func _set_action_to_single_key(action: String, keycode: Key) -> void:
 	if not InputMap.has_action(action):
 		return
 	for e in InputMap.action_get_events(action):
@@ -207,7 +193,7 @@ func _build_console_ui() -> void:
 
 	var hint := Label.new()
 	hint.name = "Hint"
-	hint.text = "[Tab] capture/release  |  Scroll or +/-: FOV  |  Q/E: rotate  |  R: monitor zoom"
+	hint.text = "[Tab] toggle control  |  +/-: FOV  |  Q/E: yaw  |  I/K: pitch  |  R: monitor zoom"
 	hint.modulate = Color(0.85, 0.85, 0.9, 0.9)
 	hint.anchor_left = 0.0
 	hint.anchor_bottom = 1.0
@@ -300,10 +286,9 @@ func _apply_feed_to_monitor() -> void:
 		if enable_debug_logging:
 			print("[ConsoleDiag] VP size:", vp.size, " cam_current:", (cam_diag and cam_diag.current), " tex:", tex != null)
 
-	# Auto-possess and force camera current on startup
+	# Auto-possess and force camera current on startup (keyboard-only; no mouse capture)
 	if _is_drone(_drone):
 		_drone.set_possessed(true)
-		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 		if cam:
 			cam.current = true
 
@@ -318,7 +303,6 @@ func _cycle_possession(_delta_index: int) -> void:
 func _release_possession() -> void:
 	if _is_drone(_drone):
 		_drone.set_possessed(false)
-	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	_update_status()
 
 func _toggle_possession() -> void:
@@ -357,16 +341,11 @@ func _adjust_current_drone_memory(delta_mb: float) -> void:
 			else:
 				mem.release(-delta_mb)
 
-func _input(event: InputEvent) -> void:
-	if event is InputEventMouseMotion and _is_drone(_drone):
-		_drone.apply_look(event.relative)
+func _input(_event: InputEvent) -> void:
+	pass
+
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventMouseMotion and _is_drone(_drone):
-		if enable_debug_logging:
-			print("[Console] mouse motion ", event.relative)
-		_drone.apply_look(event.relative)
-		return
 	# Diagnostics: log movement/rotation key events
 	if event is InputEventKey and event.pressed:
 		if enable_debug_logging:

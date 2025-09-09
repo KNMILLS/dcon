@@ -5,7 +5,7 @@ dcon game
 
 ### Controls
 - Movement: W/A/S/D
-- Look: mouse (when possessed/captured)
+- Look: keyboard only — yaw with Q/E, pitch with I/K
 - Rotate: Q/E
 - Zoom FOV: Mouse Wheel or +/-
 - Zoom monitor scale: R

@@ -19,7 +19,7 @@ An ultra‑realistic remote operations simulation: you authenticate into a deep�
 | **Connect**        | Scrollable boot/auth logs → connect to Operator Console. Drone is auto‑named (random callsign) and immediately controllable. |
 | **Scan**           | Use basic sensors to map nearby corridors/doors; identify signals, hazards, and salvage targets. |
 | **Breach**         | Route power/open doors or bypass locks; accept risk (noise, exposure). |
-| **Explore**        | WASD/mouse to pilot within a sensor‑mediated feed; manage visibility and fidelity under memory/power constraints. |
+| **Explore**        | WASD + keyboard look (Q/E yaw, I/K pitch) within a sensor‑mediated feed; manage visibility and fidelity under memory/power constraints. |
 | **Salvage**        | Recover resources and claim derelict drones; run integrity checks before activation. |
 | **Upgrade**        | Install modules (sensors, memory, shielding, comms) with trade‑offs (power/heat/memory). |
 | **Survive/Retreat**| React to hazards and threats; extract when overwhelmed. No mid‑run saves. |
@@ -32,7 +32,7 @@ An ultra‑realistic remote operations simulation: you authenticate into a deep�
 
 * `Drone.tscn` as `CharacterBody3D` with collision.
 * `Camera3D` child runs script (`drone_camera.gd`) to manage `current`, FOV zoom, and exposure.
-* Possession toggles mouse capture; non‑possessed drones still stream for monitoring.
+* Possession toggles control state; mouse capture removed.
 
 #### Drone Progression
 
@@ -70,7 +70,7 @@ An ultra‑realistic remote operations simulation: you authenticate into a deep�
 
 #### Input (Current Build)
 
-* Movement: WASD; mouse look while possessed.
+* Movement: WASD; look with Q/E (yaw) and I/K (pitch) while possessed.
 * Zoom: monitor scale toggle only (camera FOV zoom pending).
 * Sensor modes: not yet wired.
 * Additional: release possession; page up/down adjust memory load (for testing).

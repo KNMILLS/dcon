@@ -5,6 +5,7 @@ extends CharacterBody3D
 @export var gravity: float = 9.8
 
 @export var mouse_sensitivity: float = 0.1
+@export var keyboard_look_deg_per_sec: float = 90.0
 @export var look_limit_degrees: float = 89.0
 
 @export var default_fov_deg: float = 75.0
@@ -31,7 +32,6 @@ var _task_timer: Timer
 var _debug_first_tick_logged: bool = false
 var _debug_wasd_logged: bool = false
 var _debug_rotate_logged: bool = false
-var _debug_logged: bool = false
 var _debug_look_logged: bool = false
 
 func _ready() -> void:
@@ -60,11 +60,8 @@ func set_possessed(possessed: bool) -> void:
 	if enable_debug_logging:
 		print("[Drone] possessed:", possessed)
 	if possessed:
-		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 		if camera:
 			camera.current = true
-	else:
-		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 
 func apply_look(relative: Vector2) -> void:
 	if not _is_possessed:
@@ -87,7 +84,7 @@ func _physics_process(delta: float) -> void:
 	velocity.y -= gravity * delta
 
 	var target_h := Vector2.ZERO
-	# Keyboard movement/rotation always active; mouse look still gated by possession
+	# Keyboard movement/rotation always active; keyboard look gated by possession
 	var rotate_input := 0.0
 	if Input.is_action_pressed("rotate_left"):
 		rotate_input -= 1.0
@@ -100,6 +97,17 @@ func _physics_process(delta: float) -> void:
 			_debug_rotate_logged = true
 		_yaw_degrees += rotate_input * rotate_deg_per_sec * delta
 		rotation_degrees.y = _yaw_degrees
+
+	# Keyboard-based pitch control (I/K)
+	var pitch_input := 0.0
+	if Input.is_action_pressed("pitch_up") and _is_possessed:
+		pitch_input += 1.0
+	if Input.is_action_pressed("pitch_down") and _is_possessed:
+		pitch_input -= 1.0
+	if pitch_input != 0.0:
+		_pitch_degrees += pitch_input * keyboard_look_deg_per_sec * delta
+		_pitch_degrees = clamp(_pitch_degrees, -look_limit_degrees, look_limit_degrees)
+		camera_pivot.rotation_degrees.x = _pitch_degrees
 
 	var input_dir := Vector3.ZERO
 	if Input.is_action_pressed("move_forward") or Input.is_action_pressed("move_back") or Input.is_action_pressed("move_left") or Input.is_action_pressed("move_right"):
