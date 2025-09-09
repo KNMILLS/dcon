@@ -29,9 +29,7 @@ func _ready() -> void:
 			sub_viewport.set_update_mode(SubViewport.UPDATE_ALWAYS)
 		if sub_viewport.has_method("set_clear_mode"):
 			sub_viewport.set_clear_mode(SubViewport.CLEAR_MODE_ALWAYS)
-		# Ensure a sensible minimum render size for tests/clarity
-		if sub_viewport.size.x < 320 or sub_viewport.size.y < 180:
-			sub_viewport.size = Vector2i(640, 360)
+		# SubViewportContainer has stretch=true; avoid changing size at runtime
 	# Ensure there is an active camera for this viewport
 	if is_instance_valid(viewport_camera):
 		viewport_camera.current = true
